@@ -1014,6 +1014,13 @@ body.resizing {
     background: var(--blue);
     border-color: var(--blue);
     color: #fff;
+    box-shadow: 0 0 0 3px var(--blue-soft);
+}
+
+/* A check mark on the selected tab, so it doesn't rely on colour alone */
+.channel-switch button.active .channel-name::before {
+    content: "\2713";
+    margin-right: 6px;
 }
 
 .channel-switch .channel-name {
