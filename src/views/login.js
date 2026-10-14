@@ -11,7 +11,7 @@ function showError(message) {
 
 // Remember the last username so only the password needs typing next time
 try {
-    const saved = localStorage.getItem('mt_last_username');
+    const saved = localStorage.getItem('ms_last_username');
     if (saved) {
         usernameInput.value = saved;
         passwordInput.focus();
@@ -57,7 +57,7 @@ form.addEventListener('submit', async event => {
         });
         if (response.ok) {
             try {
-                localStorage.setItem('mt_last_username', username);
+                localStorage.setItem('ms_last_username', username);
             } catch {
                 // storage unavailable
             }

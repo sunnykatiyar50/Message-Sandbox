@@ -7,7 +7,7 @@
 // without a version-bump commit.
 //
 // Pushing the tag starts two GitHub Actions workflows:
-//   docker.yml   tests, then publishes ghcr.io/<owner>/messaging-test-service:<version> (and :X.Y, :X)
+//   docker.yml   tests, then publishes ghcr.io/<owner>/message-sandbox:<version> (and :X.Y, :X)
 //   release.yml  creates the GitHub Release with notes and a docker-compose.yml pinned to the version
 //
 // Plain Node, so it behaves the same in PowerShell, Git Bash and Linux.

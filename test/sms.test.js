@@ -9,7 +9,7 @@ const fs = require('fs');
 process.env.NODE_ENV = 'test';
 process.env.DB_TYPE = 'sqlite';
 process.env.SQLITE_PATH = ':memory:';
-process.env.LOG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'messaging-sms-logs-'));
+process.env.LOG_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'message-sandbox-logs-'));
 
 const request = require('supertest');
 const { loadConfig } = require('../src/config');
@@ -102,8 +102,8 @@ after(async () => {
 describe('keys', () => {
     test('Send and Read keys carry their type, and a Send key cannot be limited to inboxes', async () => {
         assert.match(sendKey, KEY_PATTERN);
-        assert.ok(sendKey.startsWith('mt_send_'));
-        assert.ok(readKey.startsWith('mt_read_'));
+        assert.ok(sendKey.startsWith('ms_send_'));
+        assert.ok(readKey.startsWith('ms_read_'));
         const limited = await admin(request(app).post('/api/keys')).send({ name: 'bad', scope: 'send', allowedRecipients: 'a@example.com' });
         assert.equal(limited.status, 400);
         assert.match(limited.body.details.allowedRecipients, /Read key/);
@@ -389,7 +389,7 @@ describe('webhook', () => {
         for (let i = 0; i < 50 && received.length === 0; i += 1) await delay(50);
         assert.equal(received.length, 1);
         const { headers, body } = received[0];
-        assert.equal(headers['x-messaging-event'], 'sms.received');
+        assert.equal(headers['x-message-sandbox-event'], 'sms.received');
         assert.equal(headers['x-signature-256'], `sha256=${crypto.createHmac('sha256', WEBHOOK_SECRET).update(body).digest('hex')}`);
         const { event, sms } = JSON.parse(body);
         assert.equal(event, 'sms.received');
@@ -422,7 +422,7 @@ describe('dashboard session', () => {
         const cookie = res.headers['set-cookie'][0];
         assert.match(cookie, /HttpOnly/);
         assert.match(cookie, /SameSite=Strict/);
-        assert.match(cookie, /^mt_session=/);
+        assert.match(cookie, /^ms_session=/);
         return cookie.split(';')[0];
     }
 
@@ -442,12 +442,12 @@ describe('dashboard session', () => {
         const dashboard = await request(app).get('/');
         assert.equal(dashboard.status, 302);
         assert.equal(dashboard.headers.location, '/login.html');
-        assert.match((await request(app).get('/').set('Cookie', cookie)).text, /Messaging Test Service/);
+        assert.match((await request(app).get('/').set('Cookie', cookie)).text, /Message Sandbox/);
     });
 
     test('refuses a forged or tampered session, and cookie writes without the CSRF header', async () => {
         const forged = createSessionToken(env.SESSION_SECRET, 60000, { u: 'someone-else' });
-        assert.equal((await request(app).get('/api/sms').set('Cookie', `mt_session=${forged}`)).status, 401);
+        assert.equal((await request(app).get('/api/sms').set('Cookie', `ms_session=${forged}`)).status, 401);
         const cookie = await login();
         const tampered = cookie.slice(0, -2) + (cookie.endsWith('AA') ? 'BB' : 'AA');
         assert.equal((await request(app).get('/api/sms').set('Cookie', tampered)).status, 401);

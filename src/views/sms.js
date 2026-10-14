@@ -36,7 +36,7 @@ function smsCurrentFilters() {
 }
 
 async function smsLoad(page = 1, pageSizeParam = smsPageSize, search = '', startDate = '', endDate = '') {
-    saveSetting('mt_sms_query', JSON.stringify({ page, pageSize: pageSizeParam, search, startDate, endDate }));
+    saveSetting('ms_sms_query', JSON.stringify({ page, pageSize: pageSizeParam, search, startDate, endDate }));
     try {
         const params = new URLSearchParams({ page, pageSize: pageSizeParam });
         if (search) params.set('search', search);
@@ -155,7 +155,7 @@ function smsShowDetails(message) {
 function smsRenderBody(message, view) {
     const text = message.message || '';
     const format = MessageFormat.detectFormat(text);
-    const chosen = view || readSetting(`mt_sms_view_${format}`, '');
+    const chosen = view || readSetting(`ms_sms_view_${format}`, '');
     const result = MessageFormat.renderMessage($('smsBody'), text, { view: chosen });
 
     $('smsFormatBadge').textContent = MessageFormat.LABELS[result.format];
@@ -167,7 +167,7 @@ function smsRenderBody(message, view) {
         button.type = 'button';
         button.setAttribute('aria-pressed', String(name === result.view));
         button.addEventListener('click', () => {
-            saveSetting(`mt_sms_view_${result.format}`, name);
+            saveSetting(`ms_sms_view_${result.format}`, name);
             smsRenderBody(message, name);
         });
         switcher.appendChild(button);
@@ -228,7 +228,7 @@ async function smsOnDateChange() {
 // Called when the SMS view is opened
 function smsShow() {
     try {
-        const saved = JSON.parse(readSetting('mt_sms_query', 'null'));
+        const saved = JSON.parse(readSetting('ms_sms_query', 'null'));
         if (saved) {
             $('smsSearchInput').value = saved.search || '';
             $('smsStartDate').value = saved.startDate || '';
@@ -446,12 +446,12 @@ function setSendChannel(channel) {
         button.classList.toggle('active', active);
         button.setAttribute('aria-pressed', String(active));
     });
-    saveSetting('mt_send_channel', sms ? 'sms' : 'email');
+    saveSetting('ms_send_channel', sms ? 'sms' : 'email');
 }
 
 // Focus the first useful field of whichever form is showing
 function focusSendForm() {
-    if (readSetting('mt_send_channel', 'email') === 'sms') {
+    if (readSetting('ms_send_channel', 'email') === 'sms') {
         ($('smsPhoneInput').value ? $('smsMessageInput') : $('smsSenderInput')).focus();
     } else {
         ($('toInput').value ? $('subjectInput') : $('toInput')).focus();
@@ -490,7 +490,7 @@ function renderSmsApiReference() {
 window.addEventListener('DOMContentLoaded', () => {
     renderSmsApiReference();
     smsOnFormInput();
-    setSendChannel(readSetting('mt_send_channel', 'email'));
+    setSendChannel(readSetting('ms_send_channel', 'email'));
     document.querySelectorAll('#sendChannel button').forEach(button =>
         button.addEventListener('click', () => {
             setSendChannel(button.dataset.channel);

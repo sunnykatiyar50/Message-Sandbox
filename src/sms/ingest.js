@@ -8,7 +8,7 @@ const { Metrics } = require('../utils/metrics');
 function createSmsIngest({ smsModel, events = null, webhook = null, metrics = new Metrics() }) {
     return async function ingestSms({ sender, phone, message, apiKeyName }) {
         const { id, timestamp } = await smsModel.create({ sender, phone, message, apiKeyName });
-        metrics.inc('messaging_test_sms_received_total');
+        metrics.inc('message_sandbox_sms_received_total');
         if (events) events.emit('sms', id);
         if (webhook) {
             // Not awaited: a slow receiver must not delay the API reply

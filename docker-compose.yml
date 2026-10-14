@@ -1,4 +1,4 @@
-# Messaging Test Service, using the prebuilt image from GitHub Container Registry.
+# Message Sandbox, using the prebuilt image from GitHub Container Registry.
 #
 #   cp sample.env .env      # then fill in the required values
 #   docker compose up -d
@@ -9,8 +9,8 @@
 # Settings come from .env. Databases (SQLite, external or bundled PostgreSQL/MySQL), bind mounts and TLS
 # certificates: see README.md, "Running with Docker" and "Database setup".
 services:
-  messaging-test-service:
-    image: ghcr.io/sunnykatiyar50/messaging-test-service:${IMAGE_TAG:-latest}
+  message-sandbox:
+    image: ghcr.io/sunnykatiyar50/message-sandbox:${IMAGE_TAG:-latest}
     init: true
     user: 1000:1000
     env_file: .env
@@ -20,8 +20,8 @@ services:
       # when SMTP_TLS_PORT is set:
       # - "${SMTP_TLS_PORT:-1465}:${SMTP_TLS_PORT:-1465}"
     volumes:
-      - messaging-data:/app/data
-      - messaging-logs:/app/logs
+      - message-sandbox-data:/app/data
+      - message-sandbox-logs:/app/logs
       # - ./certs:/certs:ro
       # bind mounts instead of volumes:
       # - ./data:/app/data
@@ -72,7 +72,7 @@ services:
   #   restart: unless-stopped
 
 volumes:
-  messaging-data:
-  messaging-logs:
+  message-sandbox-data:
+  message-sandbox-logs:
   # pg-data:
   # mysql-data:

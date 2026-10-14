@@ -15,7 +15,7 @@ async function checkLink(url) {
             method,
             redirect: 'follow',
             signal: AbortSignal.timeout(TIMEOUT_MS),
-            headers: { 'User-Agent': 'messaging-test-service link check' },
+            headers: { 'User-Agent': 'message-sandbox link check' },
         });
         response.body?.cancel().catch(() => {});
         return response;

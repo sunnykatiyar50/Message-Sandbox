@@ -6,7 +6,7 @@ ENV NODE_ENV=production \
     PORT=30004 \
     SMTP_PORT=1025 \
     DB_TYPE=sqlite \
-    SQLITE_PATH=/app/data/messaging-db.sqlite \
+    SQLITE_PATH=/app/data/message-sandbox.sqlite \
     LOG_DIR=/app/logs \
     ACME_DIR=/app/data/certs
 

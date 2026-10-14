@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const { createSessionToken, verifySessionToken, safeEqual, parseCookies } = require('../utils/session');
 const { logToFile } = require('../utils/logger');
 
-const SESSION_COOKIE = 'mt_session';
+const SESSION_COOKIE = 'ms_session';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 // Who can do what:

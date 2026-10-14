@@ -1,10 +1,10 @@
-# Messaging Test Service
+# Message Sandbox
 
 A mock **SMS gateway** and **mail server** for testing, in one service. Point your application's SMS integration and SMTP settings at it instead of real providers: nothing is delivered to any phone or inbox. Messages are stored in a database and shown in one web dashboard so you can inspect what would have been sent, and your end-to-end tests can read the OTP or the verification link your app just sent.
 
 Built with Node.js and Express, using [`smtp-server`](https://github.com/nodemailer/smtp-server) to receive mail and [`mailparser`](https://github.com/nodemailer/mailparser) to parse it. Everything can be stored in SQLite (default), PostgreSQL, or MySQL.
 
-This project merges the former SMS Test Service and Email Test Service into one app with a single dashboard, login, API-key page and database. It is a clean break: the API and database are new (SMS moved from `/api/messages` to `/api/sms`, keys are `mt_send_…` / `mt_read_…`), and existing SMS databases and keys from the old services are not carried over.
+This project merges the former SMS Test Service and Email Test Service into one app with a single dashboard, login, API-key page and database. It is a clean break: the API and database are new (SMS moved from `/api/messages` to `/api/sms`, keys are `ms_send_…` / `ms_read_…`), and existing SMS databases and keys from the old services are not carried over.
 
 ## Features
 
@@ -50,7 +50,7 @@ An HTML email is untrusted code. The preview is served from `/api/emails/:id/pre
 ## Project structure
 
 ```
-messaging-test-service
+message-sandbox
 ├── src
 │   ├── app.js                    # Entry point: config, database, HTTP server and SMTP server
 │   ├── server.js                 # Builds the Express app (middleware, routes)
@@ -206,25 +206,25 @@ Entries are addresses, domains (`example.org`) or subdomain wildcards (`*.test.l
 
 ```yaml
 scrape_configs:
-  - job_name: messaging-test-service
-    authorization: { credentials: mail_read_... }   # a Read key
+  - job_name: message-sandbox
+    authorization: { credentials: ms_read_... }   # a Read key
     static_configs: [{ targets: ['localhost:30004'] }]
 ```
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `messaging_test_smtp_connections_total` | counter | SMTP connections accepted |
-| `messaging_test_emails_received_total` | counter | Emails stored (SMTP and dashboard) |
-| `messaging_test_sms_received_total` | counter | SMS messages stored |
-| `messaging_test_received_bytes_total` | counter | Size of the stored emails |
-| `messaging_test_recipients_rejected_total{reason}` | counter | Recipients refused: `allowed_domains`, `simulated` |
-| `messaging_test_messages_rejected_total{reason}` | counter | Messages refused after DATA: `size`, `simulated`, `store_error` |
-| `messaging_test_webhook_deliveries_total{result}` | counter | Webhook deliveries: `success`, `failure` |
-| `messaging_test_relay_total{result}` | counter | Relayed emails: `sent`, `failed` |
-| `messaging_test_emails_stored` | gauge | Emails currently stored |
-| `messaging_test_sms_stored` | gauge | SMS messages currently stored |
-| `messaging_test_event_streams` | gauge | Open live-update connections |
-| `messaging_test_uptime_seconds` | gauge | Seconds since the service started |
+| `message_sandbox_smtp_connections_total` | counter | SMTP connections accepted |
+| `message_sandbox_emails_received_total` | counter | Emails stored (SMTP and dashboard) |
+| `message_sandbox_sms_received_total` | counter | SMS messages stored |
+| `message_sandbox_received_bytes_total` | counter | Size of the stored emails |
+| `message_sandbox_recipients_rejected_total{reason}` | counter | Recipients refused: `allowed_domains`, `simulated` |
+| `message_sandbox_messages_rejected_total{reason}` | counter | Messages refused after DATA: `size`, `simulated`, `store_error` |
+| `message_sandbox_webhook_deliveries_total{result}` | counter | Webhook deliveries: `success`, `failure` |
+| `message_sandbox_relay_total{result}` | counter | Relayed emails: `sent`, `failed` |
+| `message_sandbox_emails_stored` | gauge | Emails currently stored |
+| `message_sandbox_sms_stored` | gauge | SMS messages currently stored |
+| `message_sandbox_event_streams` | gauge | Open live-update connections |
+| `message_sandbox_uptime_seconds` | gauge | Seconds since the service started |
 
 Counters start at 0 when the service starts. No addresses, subjects or content are exposed.
 
@@ -279,11 +279,11 @@ CLOUDFLARE_API_TOKEN=...
 ACME_STAGING=true                    # first run: test against the staging server, then remove this line
 ```
 
-3. Start the server. The certificate is requested at startup, before the SMTP listeners open, and stored in `ACME_DIR` (`/app/data/certs` in Docker, so it is kept in the `messaging-data` volume). STARTTLS turns on, and so does the `SMTP_TLS_PORT` listener if you set it; both use the same certificate.
+3. Start the server. The certificate is requested at startup, before the SMTP listeners open, and stored in `ACME_DIR` (`/app/data/certs` in Docker, so it is kept in the `message-sandbox-data` volume). STARTTLS turns on, and so does the `SMTP_TLS_PORT` listener if you set it; both use the same certificate.
 
 Every 12 hours the server checks the certificate and renews it when fewer than `ACME_RENEW_DAYS` (30) days are left or when `ACME_DOMAINS` changed. A renewed certificate is loaded without a restart. A failed attempt is not retried for 15 minutes, to stay inside Let's Encrypt's rate limits. Point your apps at one of the listed names, since that is what the certificate is valid for.
 
-Check or force it by hand (in Docker, prefix with `docker compose exec messaging-test-service`):
+Check or force it by hand (in Docker, prefix with `docker compose exec message-sandbox`):
 
 ```
 node src/certs/cli.js status
@@ -320,7 +320,7 @@ RELAY_FROM=testing@mycompany.com
 
 **Viewer accounts** are listed in `.env` as `VIEWER_USERS=alice:a-long-password,bob:another-long-password`. They can browse, search and read emails and SMS but can't send tests, delete, or see API keys; the server refuses those requests with `403`. Usernames may use letters, digits, `.`, `_`, `@` and `-`; passwords need 8+ characters and may contain `:` but not `,`.
 
-**API keys** are created on the dashboard's **API keys** page (no restart needed), look like `mt_send_…` (Send) or `mt_read_…` (Read), can be shown and copied again at any time, and can be revoked (anything using them then gets `401`). The database stores a SHA-256 hash, used to check requests, and an AES-256-GCM encrypted copy, used only to show the key again; the encryption key is derived from `SESSION_SECRET`. If `SESSION_SECRET` changes, keys keep working but can no longer be shown.
+**API keys** are created on the dashboard's **API keys** page (no restart needed), look like `ms_send_…` (Send) or `ms_read_…` (Read), can be shown and copied again at any time, and can be revoked (anything using them then gets `401`). The database stores a SHA-256 hash, used to check requests, and an AES-256-GCM encrypted copy, used only to show the key again; the encryption key is derived from `SESSION_SECRET`. If `SESSION_SECRET` changes, keys keep working but can no longer be shown.
 
 To turn off authentication for local development, set `AUTH_DISABLED=true`. Don't do this on a server other people can reach. This only affects the dashboard and API; the SMTP server is governed by `SMTP_USERNAME` / `SMTP_PASSWORD`.
 
@@ -373,8 +373,8 @@ The newest email matching the same filters (usually `to`), with its full content
 
 ```js
 // Playwright / Cypress / Jest
-const res = await fetch(`${MESSAGING_URL}/api/emails/latest?to=${encodeURIComponent(email)}`, {
-  headers: { Authorization: `Bearer ${process.env.MESSAGING_API_KEY}` },
+const res = await fetch(`${MESSAGE_SANDBOX_URL}/api/emails/latest?to=${encodeURIComponent(email)}`, {
+  headers: { Authorization: `Bearer ${process.env.MESSAGE_SANDBOX_API_KEY}` },
 });
 const { code, links } = await res.json();
 ```
@@ -391,11 +391,11 @@ curl -H "Authorization: Bearer $API_KEY" "http://localhost:30004/api/emails/wait
 
 ## End-to-end tests
 
-The `client/` folder holds a dependency-free helper (Node 18+; copy `client/index.js`, plus `index.d.ts` for TypeScript, into your test project). It reads `MESSAGING_URL` and `MESSAGING_API_KEY` by default:
+The `client/` folder holds a dependency-free helper (Node 18+; copy `client/index.js`, plus `index.d.ts` for TypeScript, into your test project). It reads `MESSAGE_SANDBOX_URL` and `MESSAGE_SANDBOX_API_KEY` by default:
 
 ```js
 const { createClient } = require('./client');
-const mail = createClient({ baseUrl: 'http://localhost:30004', apiKey: process.env.MESSAGING_API_KEY });
+const mail = createClient({ baseUrl: 'http://localhost:30004', apiKey: process.env.MESSAGE_SANDBOX_API_KEY });
 
 test('sign-up sends a verification code', async ({ page }) => {
   const to = `user-${Date.now()}@example.com`;       // a unique recipient keeps tests apart
@@ -435,7 +435,7 @@ Set `WEBHOOK_URL` and the service POSTs JSON to it for every email it stores (`e
   "code": "482913", "links": ["https://app.example.com/verify?token=abc"], "attachments": [], "snippet": "…", "timestamp": "2026-01-01T10:00:00.000Z" } }
 ```
 
-For an SMS the payload is `{ "event": "sms.received", "sms": { "id", "sender", "phone", "message", "timestamp", "apiKeyName", "code" } }`, with the **full** phone number (the receiver is one you configured, and needs it to match the recipient). For an email the bodies and headers are not included; fetch `GET /api/emails/:id` for them. With `WEBHOOK_SECRET` set, the request carries `X-Messaging-Event: email.received` (or `sms.received`) and `X-Signature-256: sha256=<hex HMAC-SHA256 of the raw body>`, so the receiver can check it came from this service. Delivery is best effort: 5 second timeout, no retries, and a failure is logged without affecting mail reception.
+For an SMS the payload is `{ "event": "sms.received", "sms": { "id", "sender", "phone", "message", "timestamp", "apiKeyName", "code" } }`, with the **full** phone number (the receiver is one you configured, and needs it to match the recipient). For an email the bodies and headers are not included; fetch `GET /api/emails/:id` for them. With `WEBHOOK_SECRET` set, the request carries `X-Message-Sandbox-Event: email.received` (or `sms.received`) and `X-Signature-256: sha256=<hex HMAC-SHA256 of the raw body>`, so the receiver can check it came from this service. Delivery is best effort: 5 second timeout, no retries, and a failure is logged without affecting mail reception.
 
 ### Other endpoints
 
@@ -459,7 +459,7 @@ For an SMS the payload is `{ "event": "sms.received", "sms": { "id", "sender", "
 
 ## Running with Docker
 
-The image is published to GitHub Container Registry as `ghcr.io/<owner>/messaging-test-service` for `linux/amd64` and `linux/arm64`, and runs as the unprivileged `node` user (UID 1000). It exposes the dashboard on `30004` and SMTP on `1025`.
+The image is published to GitHub Container Registry as `ghcr.io/<owner>/message-sandbox` for `linux/amd64` and `linux/arm64`, and runs as the unprivileged `node` user (UID 1000). It exposes the dashboard on `30004` and SMTP on `1025`.
 
 ```
 cp sample.env .env       # fill in at least ADMIN_PASSWORD and SESSION_SECRET
@@ -467,20 +467,20 @@ docker compose up -d
 docker compose pull && docker compose up -d     # update later
 ```
 
-Dashboard at `http://localhost:30004`, SMTP at `localhost:1025`. Emails and logs are kept in the `messaging-data` and `messaging-logs` volumes (`docker compose down -v` deletes them). Keep `SQLITE_PATH` and `LOG_DIR` unset in `.env` when using Docker. For bind mounts instead of volumes, the folders must be writable by UID 1000 (`sudo mkdir -p ./data ./logs && sudo chown -R 1000:1000 ./data ./logs`); the container explains this at startup if not. To use bind mounts, uncomment the `./data` and `./logs` lines in `docker-compose.yml` in place of the volumes.
+Dashboard at `http://localhost:30004`, SMTP at `localhost:1025`. Emails and logs are kept in the `message-sandbox-data` and `message-sandbox-logs` volumes (`docker compose down -v` deletes them). Keep `SQLITE_PATH` and `LOG_DIR` unset in `.env` when using Docker. For bind mounts instead of volumes, the folders must be writable by UID 1000 (`sudo mkdir -p ./data ./logs && sudo chown -R 1000:1000 ./data ./logs`); the container explains this at startup if not. To use bind mounts, uncomment the `./data` and `./logs` lines in `docker-compose.yml` in place of the volumes.
 
 To publish SMTP over TLS, set `SMTP_TLS_PORT` in `.env` and uncomment the matching port line. For a certificate, uncomment the `./certs:/certs:ro` volume and set `SMTP_TLS_KEY=/certs/key.pem` and `SMTP_TLS_CERT=/certs/cert.pem`. To listen on a single interface only, prefix an address to the port mapping, for example `"100.110.180.13:${PORT:-30004}:${PORT:-30004}"`. For databases other than SQLite, see [Database setup](#database-setup).
 
 Without Compose:
 
 ```
-docker run -d --name messaging-test-service --init --restart unless-stopped \
+docker run -d --name message-sandbox --init --restart unless-stopped \
   --env-file .env -p 30004:30004 -p 1025:1025 \
-  -v messaging-data:/app/data -v messaging-logs:/app/logs \
-  ghcr.io/<owner>/messaging-test-service:latest
+  -v message-sandbox-data:/app/data -v message-sandbox-logs:/app/logs \
+  ghcr.io/<owner>/message-sandbox:latest
 ```
 
-Other containers on the same Docker network reach it as `messaging-test-service:1025`. Behind a reverse proxy, set `TRUST_PROXY=1`. Only the dashboard goes through an HTTP proxy; SMTP needs the port published (or a TCP/stream proxy).
+Other containers on the same Docker network reach it as `message-sandbox:1025`. Behind a reverse proxy, set `TRUST_PROXY=1`. Only the dashboard goes through an HTTP proxy; SMTP needs the port published (or a TCP/stream proxy).
 
 To run a released version instead of `latest`, set `IMAGE_TAG` (for example `IMAGE_TAG=1.2.0 docker compose up -d`). To build from this source tree rather than pull the image:
 
@@ -519,7 +519,7 @@ Never use `localhost`: inside the container that is the container itself.
 
 **Bundled container.** `docker-compose.yml` contains commented-out `postgres` and `mysql` services. To use one:
 
-1. Uncomment its `depends_on` entry (under `messaging-test-service`), its service block and its volume (`pg-data` / `mysql-data`).
+1. Uncomment its `depends_on` entry (under `message-sandbox`), its service block and its volume (`pg-data` / `mysql-data`).
 2. In `.env` set `DB_TYPE`, the credentials, and the host to the service name (`PG_HOST=postgres` or `MYSQL_HOST=mysql`). The container takes its user, password and database name from the same `PG_*` / `MYSQL_*` values.
 3. Start with the matching profile:
 
@@ -566,7 +566,7 @@ See `sample.env` for a commented template.
 | `RETENTION_DAYS` | `0` | Delete emails and SMS older than this many days, checked hourly (`0` keeps everything) |
 | `LOG_DIR`, `LOG_TO_FILE` | `./logs`, `true` | Log directory; `false` logs to stdout only |
 | `DB_TYPE` | `sqlite` | `sqlite`, `postgres`, or `mysql` |
-| `SQLITE_PATH` | `./messaging-db.sqlite` | SQLite file (the Docker image uses `/app/data/messaging-db.sqlite`) |
+| `SQLITE_PATH` | `./message-sandbox.sqlite` | SQLite file (the Docker image uses `/app/data/message-sandbox.sqlite`) |
 | `PG_*`, `MYSQL_*` | — | Connection settings, including `PG_SSL` / `MYSQL_SSL` and `*_SSL_CA` |
 
 ## Security notes

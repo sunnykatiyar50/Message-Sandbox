@@ -10,7 +10,7 @@ const toParam = value => (value instanceof Date ? value.toISOString() : value ==
 
 async function connect() {
     logToFile('Initializing SQLite database connection...');
-    const db = new DatabaseSync(process.env.SQLITE_PATH || './messaging-db.sqlite');
+    const db = new DatabaseSync(process.env.SQLITE_PATH || './message-sandbox.sqlite');
 
     db.exec(
         `CREATE TABLE IF NOT EXISTS emails (

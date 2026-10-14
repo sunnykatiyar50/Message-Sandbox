@@ -39,7 +39,7 @@ function buildRawMessage({ from, fromName, to, cc = [], subject, text, html, att
         ...(cc.length ? [`Cc: ${cc.join(', ')}`] : []),
         `Subject: ${encodeHeader(subject)}`,
         `Date: ${new Date().toUTCString()}`,
-        `Message-ID: <${crypto.randomUUID()}@messaging-test-service.local>`,
+        `Message-ID: <${crypto.randomUUID()}@message-sandbox.local>`,
         'MIME-Version: 1.0',
     ];
 

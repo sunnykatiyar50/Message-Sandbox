@@ -14,7 +14,7 @@ class EventsController {
         this.smsModel = smsModel;
         this.events = events;
         this.streams = 0;
-        metrics.gauge('messaging_test_event_streams', 'Open live-update connections (GET /api/events).', () => this.streams);
+        metrics.gauge('message_sandbox_event_streams', 'Open live-update connections (GET /api/events).', () => this.streams);
     }
 
     stream(req, res) {

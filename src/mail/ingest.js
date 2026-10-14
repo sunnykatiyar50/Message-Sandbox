@@ -10,8 +10,8 @@ function createIngest({ emailModel, events = null, webhook = null, relay = null,
     return async function ingest(raw, options) {
         const record = await parseEmail(raw, options);
         const { id, timestamp } = await emailModel.create(record);
-        metrics.inc('messaging_test_emails_received_total');
-        metrics.inc('messaging_test_received_bytes_total', {}, record.size);
+        metrics.inc('message_sandbox_emails_received_total');
+        metrics.inc('message_sandbox_received_bytes_total', {}, record.size);
         if (events) events.emit('email', id);
         if (webhook) {
             // Not awaited: a slow receiver must not delay the SMTP reply

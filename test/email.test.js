@@ -227,7 +227,7 @@ describe('API access', () => {
         assert.equal(created.status, 201, JSON.stringify(created.body));
         const key = created.body.secret;
         assert.match(key, KEY_PATTERN);
-        assert.ok(key.startsWith('mt_read_'));
+        assert.ok(key.startsWith('ms_read_'));
 
         assert.equal((await request(app).get('/api/emails').set('X-API-Key', key)).status, 200);
         assert.equal((await request(app).get('/api/emails').set('Authorization', `bearer ${key}`)).status, 200);

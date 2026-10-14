@@ -19,16 +19,16 @@ function createWebhook({ url, secret, metrics = new Metrics() }) {
         const body = JSON.stringify({ event, [event.split('.')[0]]: data });
         const headers = {
             'Content-Type': 'application/json',
-            'User-Agent': 'messaging-test-service',
-            'X-Messaging-Event': event,
+            'User-Agent': 'message-sandbox',
+            'X-Message-Sandbox-Event': event,
         };
         if (secret) headers['X-Signature-256'] = `sha256=${crypto.createHmac('sha256', secret).update(body).digest('hex')}`;
         try {
             const response = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(TIMEOUT_MS) });
-            metrics.inc('messaging_test_webhook_deliveries_total', { result: response.ok ? 'success' : 'failure' });
+            metrics.inc('message_sandbox_webhook_deliveries_total', { result: response.ok ? 'success' : 'failure' });
             logToFile(`Webhook to ${host} for ${event} id=${data.id}: HTTP ${response.status}`);
         } catch (error) {
-            metrics.inc('messaging_test_webhook_deliveries_total', { result: 'failure' });
+            metrics.inc('message_sandbox_webhook_deliveries_total', { result: 'failure' });
             logToFile(`Webhook to ${host} for ${event} id=${data.id} failed: ${error.message}`);
         }
     };

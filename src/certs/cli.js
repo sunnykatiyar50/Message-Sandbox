@@ -1,5 +1,5 @@
 // node src/certs/cli.js status | renew [--force]
-// In Docker: docker compose exec messaging-test-service node src/certs/cli.js status
+// In Docker: docker compose exec message-sandbox node src/certs/cli.js status
 
 require('dotenv').config();
 const { loadConfig } = require('../config');

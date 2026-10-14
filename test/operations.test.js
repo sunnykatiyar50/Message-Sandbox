@@ -251,7 +251,7 @@ describe('live updates', () => {
         everyone.controller.abort();
         mine.controller.abort();
         await delay(200);
-        assert.match(await metrics.render(), /messaging_test_event_streams 0/);
+        assert.match(await metrics.render(), /message_sandbox_event_streams 0/);
     });
 
     test('requires authentication', async () => {
@@ -317,14 +317,14 @@ describe('metrics', () => {
         const res = await admin(request(app).get('/metrics'));
         assert.equal(res.status, 200);
         assert.match(res.headers['content-type'], /text\/plain; version=0\.0\.4/);
-        assert.match(res.text, /# TYPE messaging_test_emails_received_total counter/);
+        assert.match(res.text, /# TYPE message_sandbox_emails_received_total counter/);
         const value = name => Number(new RegExp(`^${name} (\\d+)$`, 'm').exec(res.text)[1]);
-        assert.ok(value('messaging_test_emails_received_total') >= 5);
-        assert.ok(value('messaging_test_smtp_connections_total') >= 5);
-        assert.ok(value('messaging_test_received_bytes_total') > 0);
-        assert.match(res.text, /messaging_test_recipients_rejected_total\{reason="simulated"\} [1-9]/);
-        assert.match(res.text, /# TYPE messaging_test_emails_stored gauge\nmessaging_test_emails_stored [1-9]/);
-        assert.match(res.text, /messaging_test_uptime_seconds \d+/);
+        assert.ok(value('message_sandbox_emails_received_total') >= 5);
+        assert.ok(value('message_sandbox_smtp_connections_total') >= 5);
+        assert.ok(value('message_sandbox_received_bytes_total') > 0);
+        assert.match(res.text, /message_sandbox_recipients_rejected_total\{reason="simulated"\} [1-9]/);
+        assert.match(res.text, /# TYPE message_sandbox_emails_stored gauge\nmessage_sandbox_emails_stored [1-9]/);
+        assert.match(res.text, /message_sandbox_uptime_seconds \d+/);
         assert.doesNotMatch(res.text, /metrics@example\.com|Counted/, 'no addresses or subjects');
     });
 

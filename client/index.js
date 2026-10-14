@@ -2,7 +2,7 @@
 // No dependencies; needs Node 18+ (global fetch).
 //
 //   const { createClient } = require('./client');
-//   const mail = createClient({ baseUrl: 'http://localhost:30004', apiKey: process.env.MESSAGING_API_KEY });
+//   const mail = createClient({ baseUrl: 'http://localhost:30004', apiKey: process.env.MESSAGE_SANDBOX_API_KEY });
 //
 //   await signUp('user-7f3a@example.com');                       // your app sends the email
 //   const code = await mail.waitForCode({ to: 'user-7f3a@example.com' });
@@ -29,8 +29,8 @@ const FILTERS = ['to', 'from', 'subject', 'search', 'after', 'before'];
 const SMS_FILTERS = ['phone', 'search', 'after', 'before'];
 
 function createClient({
-    baseUrl = process.env.MESSAGING_URL || 'http://localhost:30004',
-    apiKey = process.env.MESSAGING_API_KEY,
+    baseUrl = process.env.MESSAGE_SANDBOX_URL || 'http://localhost:30004',
+    apiKey = process.env.MESSAGE_SANDBOX_API_KEY,
     fetch: fetchImpl = globalThis.fetch,
 } = {}) {
     const root = baseUrl.replace(/\/+$/, '');

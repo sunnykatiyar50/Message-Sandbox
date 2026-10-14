@@ -4,6 +4,6 @@
 #
 # Everything else (ports, volumes, .env) comes from docker-compose.yml.
 services:
-  messaging-test-service:
+  message-sandbox:
     build: .
-    image: messaging-test-service:local
+    image: message-sandbox:local

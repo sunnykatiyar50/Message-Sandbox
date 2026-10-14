@@ -1,15 +1,15 @@
 const crypto = require('crypto');
 
-// API key format: mt_<scope>_<43 random base64url characters> (32 random bytes), e.g.
-//   mt_send_3f9aK2...   mt_read_Q8xw1L...
+// API key format: ms_<scope>_<43 random base64url characters> (32 random bytes), e.g.
+//   ms_send_3f9aK2...   ms_read_Q8xw1L...
 // The scope in the key makes it obvious what a leaked key can do. Send keys let an app submit SMS messages
 // (POST /api/sms); Read keys list and read emails and SMS. Email arrives over SMTP, so it needs no key.
 const SCOPES = ['send', 'read'];
-const KEY_PATTERN = /^mt_(send|read)_[A-Za-z0-9_-]{43}$/;
+const KEY_PATTERN = /^ms_(send|read)_[A-Za-z0-9_-]{43}$/;
 
 function generateApiKey(scope) {
     if (!SCOPES.includes(scope)) throw new Error(`Unknown API key scope: ${scope}`);
-    return `mt_${scope}_${crypto.randomBytes(32).toString('base64url')}`;
+    return `ms_${scope}_${crypto.randomBytes(32).toString('base64url')}`;
 }
 
 // Keys are 256-bit random values, so a plain SHA-256 is a safe lookup hash (no salt or slow hash needed)
@@ -17,9 +17,9 @@ function hashApiKey(key) {
     return crypto.createHash('sha256').update(String(key)).digest('hex');
 }
 
-// What the dashboard shows for a key without revealing it: "mt_send_3f9aK2"
+// What the dashboard shows for a key without revealing it: "ms_send_3f9aK2"
 function keyPrefix(key) {
-    const typed = key.match(/^mt_(?:send|read)_/);
+    const typed = key.match(/^ms_(?:send|read)_/);
     return typed ? key.slice(0, typed[0].length + 6) : key.slice(0, 6);
 }
 
@@ -28,7 +28,7 @@ function keyPrefix(key) {
 // uses the hash) but can no longer be decrypted for display.
 function createKeyCipher(secret) {
     const material = secret || crypto.randomBytes(32).toString('hex'); // no secret: works until restart
-    const aesKey = Buffer.from(crypto.hkdfSync('sha256', material, 'messaging-test-service', 'api-key-encryption', 32));
+    const aesKey = Buffer.from(crypto.hkdfSync('sha256', material, 'message-sandbox', 'api-key-encryption', 32));
 
     return {
         encrypt(plain) {

@@ -8,7 +8,7 @@
 (function () {
     'use strict';
 
-    var KEY = 'mt_theme';
+    var KEY = 'ms_theme';
     var ORDER = ['system', 'light', 'dark'];
     var LABELS = { system: 'Theme: System', light: 'Theme: Light', dark: 'Theme: Dark' };
     var root = document.documentElement;

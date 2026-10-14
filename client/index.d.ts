@@ -81,9 +81,9 @@ export interface SmsFilters {
 }
 
 export interface ClientOptions {
-    /** Default: MESSAGING_URL, or http://localhost:30004 */
+    /** Default: MESSAGE_SANDBOX_URL, or http://localhost:30004 */
     baseUrl?: string;
-    /** A Read key (or the admin token). Default: MESSAGING_API_KEY */
+    /** A Read key (or the admin token). Default: MESSAGE_SANDBOX_API_KEY */
     apiKey?: string;
     fetch?: typeof fetch;
 }

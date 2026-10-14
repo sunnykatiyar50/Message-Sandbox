@@ -2,14 +2,14 @@
 // gauges read when /metrics is scraped. Nothing here records addresses, subjects or message content.
 
 const DEFINITIONS = {
-    messaging_test_smtp_connections_total: 'SMTP connections accepted.',
-    messaging_test_emails_received_total: 'Emails stored (over SMTP or from the dashboard).',
-    messaging_test_sms_received_total: 'SMS messages stored (POST /api/sms).',
-    messaging_test_received_bytes_total: 'Size in bytes of the stored emails.',
-    messaging_test_recipients_rejected_total: 'Recipients refused at RCPT TO, by reason (allowed_domains, simulated).',
-    messaging_test_messages_rejected_total: 'Messages refused after DATA, by reason (size, simulated, store_error).',
-    messaging_test_webhook_deliveries_total: 'Webhook deliveries, by result (success, failure).',
-    messaging_test_relay_total: 'Relayed emails, by result (sent, failed).',
+    message_sandbox_smtp_connections_total: 'SMTP connections accepted.',
+    message_sandbox_emails_received_total: 'Emails stored (over SMTP or from the dashboard).',
+    message_sandbox_sms_received_total: 'SMS messages stored (POST /api/sms).',
+    message_sandbox_received_bytes_total: 'Size in bytes of the stored emails.',
+    message_sandbox_recipients_rejected_total: 'Recipients refused at RCPT TO, by reason (allowed_domains, simulated).',
+    message_sandbox_messages_rejected_total: 'Messages refused after DATA, by reason (size, simulated, store_error).',
+    message_sandbox_webhook_deliveries_total: 'Webhook deliveries, by result (success, failure).',
+    message_sandbox_relay_total: 'Relayed emails, by result (sent, failed).',
 };
 
 const escapeLabel = value => String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n');
@@ -48,7 +48,7 @@ class Metrics {
         }
         const gauges = [
             ...this.gauges,
-            { name: 'messaging_test_uptime_seconds', help: 'Seconds since the service started.', read: () => Math.round((Date.now() - this.startedAt) / 1000) },
+            { name: 'message_sandbox_uptime_seconds', help: 'Seconds since the service started.', read: () => Math.round((Date.now() - this.startedAt) / 1000) },
         ];
         for (const { name, help, read } of gauges) {
             let value;

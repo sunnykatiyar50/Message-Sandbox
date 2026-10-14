@@ -1,6 +1,6 @@
 # Tests the app, then builds the Docker image and publishes it to GitHub Container Registry.
 #
-#   push to main          -> ghcr.io/<owner>/messaging-test-service:latest and :sha-<short>
+#   push to main          -> ghcr.io/<owner>/message-sandbox:latest and :sha-<short>
 #   push a tag v2.1.0     -> :2.1.0, :2.1, :2 and :sha-<short>
 #   pull request to main  -> tests and builds the image, but does not publish it
 #   Actions tab "Run workflow" -> same as a push to the selected branch
@@ -24,7 +24,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/messaging-test-service
+  IMAGE_NAME: ${{ github.repository_owner }}/message-sandbox
 
 jobs:
   test:
@@ -78,7 +78,7 @@ jobs:
             type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
             type=sha,prefix=sha-
           labels: |
-            org.opencontainers.image.title=Messaging Test Service
+            org.opencontainers.image.title=Message Sandbox
             org.opencontainers.image.description=Mock SMS gateway and mail server for testing: captures outgoing SMS and email and shows them in one web dashboard
 
       - name: Build and push

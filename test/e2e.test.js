@@ -180,7 +180,7 @@ describe('webhook', () => {
         assert.equal(received.length, 1);
 
         const { headers, body } = received[0];
-        assert.equal(headers['x-messaging-event'], 'email.received');
+        assert.equal(headers['x-message-sandbox-event'], 'email.received');
         const expected = `sha256=${crypto.createHmac('sha256', WEBHOOK_SECRET).update(body).digest('hex')}`;
         assert.equal(headers['x-signature-256'], expected);
 

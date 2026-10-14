@@ -24,10 +24,10 @@ function createRelay(config, metrics = new Metrics()) {
         const from = config.relayFrom || (envelope.mailFrom && envelope.mailFrom.address) || undefined;
         try {
             await transport.sendMail({ envelope: { from, to: recipients }, raw });
-            metrics.inc('messaging_test_relay_total', { result: 'sent' });
+            metrics.inc('message_sandbox_relay_total', { result: 'sent' });
             logToFile(`Relayed email id=${id} to ${recipients.length} allowed recipient(s) via ${config.relayHost}`);
         } catch (error) {
-            metrics.inc('messaging_test_relay_total', { result: 'failed' });
+            metrics.inc('message_sandbox_relay_total', { result: 'failed' });
             logToFile(`Relay of email id=${id} via ${config.relayHost} failed: ${error.message}`);
         }
     };

@@ -42,8 +42,8 @@ function createApp({ config, emailModel, smsModel = null, apiKeyModel, ingest, i
             },
         })
     );
-    metrics.gauge('messaging_test_emails_stored', 'Emails currently stored.', () => emailModel.count());
-    if (smsModel) metrics.gauge('messaging_test_sms_stored', 'SMS messages currently stored.', () => smsModel.count());
+    metrics.gauge('message_sandbox_emails_stored', 'Emails currently stored.', () => emailModel.count());
+    if (smsModel) metrics.gauge('message_sandbox_sms_stored', 'SMS messages currently stored.', () => smsModel.count());
 
     // Small bodies for the API. "Send test" can carry attachments, so it parses its own (larger) body after
     // authenticating; see emailRoutes.js.

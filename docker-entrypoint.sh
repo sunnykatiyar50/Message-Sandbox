@@ -9,7 +9,7 @@
 # given to node automatically and the app is then started as node.
 set -e
 
-data_dir="$(dirname "${SQLITE_PATH:-/app/data/messaging-db.sqlite}")"
+data_dir="$(dirname "${SQLITE_PATH:-/app/data/message-sandbox.sqlite}")"
 log_dir="${LOG_DIR:-/app/logs}"
 uses_sqlite=false
 case "${DB_TYPE:-sqlite}" in sqlite | SQLITE | "") uses_sqlite=true ;; esac

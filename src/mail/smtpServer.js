@@ -55,7 +55,7 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
     if (secure && !tls) throw new Error('A TLS listener needs SMTP_TLS_KEY and SMTP_TLS_CERT');
 
     const server = new SMTPServer({
-        banner: 'Messaging Test Service',
+        banner: 'Message Sandbox',
         authOptional: !authRequired,
         allowInsecureAuth: true,
         secure,
@@ -65,7 +65,7 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
         logger: false,
 
         onConnect(session, callback) {
-            metrics.inc('messaging_test_smtp_connections_total');
+            metrics.inc('message_sandbox_smtp_connections_total');
             callback();
         },
 
@@ -83,13 +83,13 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
             // Only mail for the listed domains, so a mistyped address in an app's config is caught
             if (config.smtpAllowedDomains.length && !matchesAny(config.smtpAllowedDomains, address.address)) {
                 const allowed = config.smtpAllowedDomains.map(describeRule).join(', ');
-                metrics.inc('messaging_test_recipients_rejected_total', { reason: 'allowed_domains' });
+                metrics.inc('message_sandbox_recipients_rejected_total', { reason: 'allowed_domains' });
                 return callback(failure(550, `Relay access denied: this server only accepts mail for ${allowed}`));
             }
             if (!config.smtpSimulate) return callback();
             const { error, delay, dataFail } = simulate(address.address);
             if (error) {
-                metrics.inc('messaging_test_recipients_rejected_total', { reason: 'simulated' });
+                metrics.inc('message_sandbox_recipients_rejected_total', { reason: 'simulated' });
                 return callback(error);
             }
             if (dataFail) session.simulateDataFailure = true;
@@ -105,11 +105,11 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
                 if (stream.sizeExceeded) {
                     const error = new Error(`Message exceeds the ${Math.round(config.maxEmailBytes / 1048576)} MB limit`);
                     error.responseCode = 552;
-                    metrics.inc('messaging_test_messages_rejected_total', { reason: 'size' });
+                    metrics.inc('message_sandbox_messages_rejected_total', { reason: 'size' });
                     return callback(error);
                 }
                 if (session.simulateDataFailure) {
-                    metrics.inc('messaging_test_messages_rejected_total', { reason: 'simulated' });
+                    metrics.inc('message_sandbox_messages_rejected_total', { reason: 'simulated' });
                     return callback(failure(554, 'Transaction failed (simulated)'));
                 }
                 try {
@@ -121,7 +121,7 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
                     logToFile(`Stored email id=${id} size=${size} recipients=${recipients} from=${session.remoteAddress}`);
                     callback();
                 } catch (error) {
-                    metrics.inc('messaging_test_messages_rejected_total', { reason: 'store_error' });
+                    metrics.inc('message_sandbox_messages_rejected_total', { reason: 'store_error' });
                     logToFile(`Failed to store email: ${error.stack || error}`);
                     callback(failure(451, 'Could not store the message, try again'));
                 }

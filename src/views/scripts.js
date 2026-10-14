@@ -1,4 +1,4 @@
-// Messaging Test Service dashboard: the shell, the Emails section, API keys and the setup pages. The SMS section
+// Message Sandbox dashboard: the shell, the Emails section, API keys and the setup pages. The SMS section
 // is in sms.js. Message content is always rendered with textContent (or in a sandboxed iframe), never
 // injected as HTML into this page.
 
@@ -140,7 +140,7 @@ function showView() {
         if (active) link.setAttribute('aria-current', 'page');
         else link.removeAttribute('aria-current');
     });
-    document.title = `${VIEW_TITLES[view]} · Messaging Test Service`;
+    document.title = `${VIEW_TITLES[view]} · Message Sandbox`;
     if (view === 'messages') reloadWithSavedParams();
     if (view === 'sms') smsShow();
     if (view === 'send') focusSendForm();
@@ -154,7 +154,7 @@ function setSidebarCollapsed(collapsed) {
     button.setAttribute('aria-expanded', String(!collapsed));
     button.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
     button.setAttribute('aria-label', button.title);
-    saveSetting('mt_sidebar_collapsed', collapsed ? 'yes' : 'no');
+    saveSetting('ms_sidebar_collapsed', collapsed ? 'yes' : 'no');
 }
 
 // --- Resizable sidebar ---
@@ -173,7 +173,7 @@ function applySidebarWidth(px) {
 
 // Applied as soon as the script runs, before the first paint, so the sidebar doesn't jump
 (function restoreSidebarWidth() {
-    const saved = parseInt(readSetting('mt_sidebar_width', ''), 10);
+    const saved = parseInt(readSetting('ms_sidebar_width', ''), 10);
     if (saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) {
         document.documentElement.style.setProperty('--sidebar-width', `${saved}px`);
     }
@@ -213,10 +213,10 @@ function initSidebarResizer() {
             handle.classList.remove('will-collapse');
             if (wantsCollapse) {
                 // Keep the last expanded width for when the sidebar is expanded again
-                applySidebarWidth(clamp(parseInt(readSetting('mt_sidebar_width', ''), 10) || SIDEBAR_DEFAULT));
+                applySidebarWidth(clamp(parseInt(readSetting('ms_sidebar_width', ''), 10) || SIDEBAR_DEFAULT));
                 setSidebarCollapsed(true);
             } else {
-                saveSetting('mt_sidebar_width', String(width));
+                saveSetting('ms_sidebar_width', String(width));
             }
         };
         handle.addEventListener('pointermove', onMove);
@@ -229,11 +229,11 @@ function initSidebarResizer() {
         event.preventDefault();
         const width = clamp(current() + (event.key === 'ArrowRight' ? 16 : -16));
         applySidebarWidth(width);
-        saveSetting('mt_sidebar_width', String(width));
+        saveSetting('ms_sidebar_width', String(width));
     });
     handle.addEventListener('dblclick', () => {
         applySidebarWidth(SIDEBAR_DEFAULT);
-        saveSetting('mt_sidebar_width', String(SIDEBAR_DEFAULT));
+        saveSetting('ms_sidebar_width', String(SIDEBAR_DEFAULT));
     });
 }
 
@@ -313,7 +313,7 @@ function currentFilters() {
 }
 
 async function loadMessages(page = 1, pageSizeParam = pageSize, searchInput = '', startDate = '', endDate = '') {
-    saveSetting('mt_query_params', JSON.stringify({ page, pageSize: pageSizeParam, searchInput, startDate, endDate, timeRange }));
+    saveSetting('ms_query_params', JSON.stringify({ page, pageSize: pageSizeParam, searchInput, startDate, endDate, timeRange }));
     try {
         const queryParams = new URLSearchParams({ page, pageSize: pageSizeParam });
         if (searchInput) queryParams.set('search', searchInput);
@@ -533,7 +533,7 @@ function emailViews(email) {
 
 function renderEmailBody(email, view) {
     const views = emailViews(email);
-    const preferred = view || readSetting('mt_view', '');
+    const preferred = view || readSetting('ms_view', '');
     const chosen = views.some(([name]) => name === preferred) ? preferred : views[0][0];
 
     // The detected one-time code, if any (see src/utils/otp.js)
@@ -549,7 +549,7 @@ function renderEmailBody(email, view) {
         button.type = 'button';
         button.setAttribute('aria-pressed', String(name === chosen));
         button.addEventListener('click', () => {
-            saveSetting('mt_view', name);
+            saveSetting('ms_view', name);
             renderEmailBody(email, name);
         });
         switcher.appendChild(button);
@@ -595,10 +595,10 @@ function htmlPreview(email) {
     holder.appendChild(frame);
 
     const refresh = () => {
-        const width = readSetting('mt_preview_width', 'desktop');
+        const width = readSetting('ms_preview_width', 'desktop');
         frame.style.width = (PREVIEW_WIDTHS.find(([name]) => name === width) || PREVIEW_WIDTHS[2])[2];
         // Not a real dark mode: inverts the rendered page, which approximates how clients recolor light emails
-        frame.classList.toggle('dark-sim', readSetting('mt_preview_dark', 'no') === 'yes');
+        frame.classList.toggle('dark-sim', readSetting('ms_preview_dark', 'no') === 'yes');
         const wanted = `/api/emails/${email.id}/preview${imagesAllowed.has(email.id) ? '?images=true' : ''}`;
         if (frame.getAttribute('src') !== wanted) frame.src = wanted;
         for (const button of tools.querySelectorAll('[data-width]')) {
@@ -618,7 +618,7 @@ function htmlPreview(email) {
         button.type = 'button';
         button.dataset.width = name;
         button.addEventListener('click', () => {
-            saveSetting('mt_preview_width', name);
+            saveSetting('ms_preview_width', name);
             refresh();
         });
         widths.appendChild(button);
@@ -627,7 +627,7 @@ function htmlPreview(email) {
     dark.type = 'button';
     dark.title = 'Simulate a dark-mode mail client';
     dark.addEventListener('click', () => {
-        saveSetting('mt_preview_dark', readSetting('mt_preview_dark', 'no') === 'yes' ? 'no' : 'yes');
+        saveSetting('ms_preview_dark', readSetting('ms_preview_dark', 'no') === 'yes' ? 'no' : 'yes');
         refresh();
     });
     const images = el('button', 'ghost small toggle', 'Load images');
@@ -808,9 +808,9 @@ function applyDetailRatio(layout, resizer, ratio) {
 function initPaneResizer(layoutId, resizerId) {
     const layout = $(layoutId);
     const resizer = $(resizerId);
-    let ratio = parseFloat(readSetting('mt_detail_ratio', '')) || DEFAULT_DETAIL_RATIO;
+    let ratio = parseFloat(readSetting('ms_detail_ratio', '')) || DEFAULT_DETAIL_RATIO;
     const apply = () => applyDetailRatio(layout, resizer, ratio);
-    const save = () => saveSetting('mt_detail_ratio', ratio.toFixed(3));
+    const save = () => saveSetting('ms_detail_ratio', ratio.toFixed(3));
     resizer.setAttribute('aria-valuemin', '20');
     resizer.setAttribute('aria-valuemax', '75');
 
@@ -895,7 +895,7 @@ async function onDateChange() {
 
 function reloadWithSavedParams() {
     try {
-        const saved = JSON.parse(readSetting('mt_query_params', 'null'));
+        const saved = JSON.parse(readSetting('ms_query_params', 'null'));
         if (saved) {
             $('searchInput').value = saved.searchInput || '';
             $('startDate').value = saved.startDate || '';
@@ -1461,7 +1461,7 @@ function renderApiReference() {
 // --- Wiring ---
 
 window.addEventListener('DOMContentLoaded', () => {
-    setSidebarCollapsed(readSetting('mt_sidebar_collapsed', 'no') === 'yes');
+    setSidebarCollapsed(readSetting('ms_sidebar_collapsed', 'no') === 'yes');
     renderApiReference();
     onFormInput();
     loadServerInfo();
