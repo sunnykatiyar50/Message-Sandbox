@@ -1,0 +1,78 @@
+# Messaging Test Service, using the prebuilt image from GitHub Container Registry.
+#
+#   cp sample.env .env      # then fill in the required values
+#   docker compose up -d
+#   docker compose pull && docker compose up -d     # update to the latest image
+#   IMAGE_TAG=1.2.0 docker compose up -d             # pin a released version (see the Releases page)
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build   # build from source
+#
+# Settings come from .env. Databases (SQLite, external or bundled PostgreSQL/MySQL), bind mounts and TLS
+# certificates: see README.md, "Running with Docker" and "Database setup".
+services:
+  messaging-test-service:
+    image: ghcr.io/sunnykatiyar50/messaging-test-service:${IMAGE_TAG:-latest}
+    init: true
+    user: 1000:1000
+    env_file: .env
+    ports:
+      - "${PORT:-30004}:${PORT:-30004}"
+      - "${SMTP_PORT:-1025}:${SMTP_PORT:-1025}"
+      # when SMTP_TLS_PORT is set:
+      # - "${SMTP_TLS_PORT:-1465}:${SMTP_TLS_PORT:-1465}"
+    volumes:
+      - messaging-data:/app/data
+      - messaging-logs:/app/logs
+      # - ./certs:/certs:ro
+      # bind mounts instead of volumes:
+      # - ./data:/app/data
+      # - ./logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # bundled database only:
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
+    #     required: false
+    #   mysql:
+    #     condition: service_healthy
+    #     required: false
+    restart: unless-stopped
+
+  # postgres:
+  #   image: postgres:17-alpine
+  #   profiles: ["postgres"]
+  #   environment:
+  #     POSTGRES_USER: ${PG_USER:-mail}
+  #     POSTGRES_PASSWORD: ${PG_PASSWORD:-}
+  #     POSTGRES_DB: ${PG_DATABASE:-mail}
+  #   volumes:
+  #     - pg-data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+  #   restart: unless-stopped
+
+  # mysql:
+  #   image: mysql:8.4
+  #   profiles: ["mysql"]
+  #   environment:
+  #     MYSQL_USER: ${MYSQL_USER:-mail}
+  #     MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+  #     MYSQL_DATABASE: ${MYSQL_DATABASE:-mail}
+  #     MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+  #   volumes:
+  #     - mysql-data:/var/lib/mysql
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+  #     interval: 5s
+  #     timeout: 5s
+  #     retries: 10
+  #   restart: unless-stopped
+
+volumes:
+  messaging-data:
+  messaging-logs:
+  # pg-data:
+  # mysql-data:

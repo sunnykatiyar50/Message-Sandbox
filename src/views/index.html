@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messaging Test Service</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Applies the saved theme before first paint -->
+    <script src="theme.js"></script>
+</head>
+<body class="app">
+    <!-- Sidebar navigation -->
+    <aside id="sidebar" class="sidebar">
+        <div id="sidebarResizer" class="sidebar-resizer" role="separator" aria-orientation="vertical"
+             aria-label="Resize sidebar" tabindex="0" title="Drag to resize · double-click to reset"></div>
+        <div class="sidebar-brand">
+            <span class="brand-mark small">
+                <svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </span>
+            <span class="label brand-name">Messaging Test Service</span>
+            <!-- Collapses the sidebar to icons; when collapsed it takes the logo's place as the expand button -->
+            <button type="button" id="collapseButton" class="sidebar-toggle" title="Collapse sidebar"
+                    aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar">
+                <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav" aria-label="Main">
+            <a href="#/messages" class="nav-link" data-view="messages" title="Emails">
+                <svg viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                <span class="label">Emails</span>
+                <span id="navCount" class="nav-badge label"></span>
+            </a>
+            <a href="#/sms" class="nav-link" data-view="sms" title="SMS">
+                <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span class="label">SMS</span>
+                <span id="smsNavCount" class="nav-badge label"></span>
+            </a>
+            <a href="#/send" class="nav-link admin-only" data-view="send" title="Send test">
+                <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                <span class="label">Send test</span>
+            </a>
+            <a href="#/keys" class="nav-link admin-only" data-view="keys" title="API keys">
+                <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                <span class="label">API keys</span>
+            </a>
+            <a href="#/api" class="nav-link" data-view="api" title="Setup &amp; API">
+                <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                <span class="label">Setup &amp; API</span>
+            </a>
+        </nav>
+
+        <!-- Quick time range for the Emails and SMS views -->
+        <div class="sidebar-section">
+            <label for="rangeSelect" class="sidebar-label label">Show messages from</label>
+            <div class="range-control">
+                <span id="rangeIconButton" class="nav-link range-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </span>
+                <select id="rangeSelect" class="range-select label">
+                    <option value="all">All time</option>
+                    <option value="10m">Last 10 minutes</option>
+                    <option value="1h">Last 1 hour</option>
+                    <option value="8h">Last 8 hours</option>
+                    <option value="24h">Last 1 day</option>
+                    <option value="7d">Last 1 week</option>
+                    <option value="30d">Last 1 month</option>
+                    <option value="custom" disabled>Custom dates</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div id="authWarning" class="auth-warning label hidden">Authentication is disabled</div>
+            <div class="nav-link static" title="Signed in user">
+                <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span id="currentUser" class="label">admin</span>
+            </div>
+            <button type="button" id="themeButton" class="nav-link" data-theme-toggle>
+                <svg class="theme-icon theme-icon-system" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                <svg class="theme-icon theme-icon-light" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                <svg class="theme-icon theme-icon-dark" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <span class="label" data-theme-label>Theme: System</span>
+            </button>
+            <button type="button" id="logoutButton" class="nav-link" title="Sign out">
+                <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span class="label">Sign out</span>
+            </button>
+        </div>
+    </aside>
+
+    <main class="content">
+        <!-- ===== Messages ===== -->
+        <section id="viewMessages" class="view" data-view="messages">
+            <header class="view-header">
+                <div class="view-title">
+                    <h1>Emails</h1>
+                    <span id="messageInfo" class="muted"></span>
+                    <span id="liveStatus" class="live hidden" title="New emails appear as they arrive">Live</span>
+                    <button type="button" id="rangeChip" class="filter-chip hidden" title="Clear time range">
+                        <span id="rangeChipText"></span>
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="toolbar">
+                    <input type="search" id="searchInput" placeholder="Search subject, address, body" aria-label="Search" />
+                    <label class="date-field"><span>From</span><input type="date" id="startDate" /></label>
+                    <label class="date-field"><span>To</span><input type="date" id="endDate" /></label>
+                    <button id="searchButton" type="button" class="primary">Search</button>
+                    <button id="resetFiltersButton" type="button" class="ghost" title="Clear filters">Reset</button>
+                    <button id="refreshButton" type="button" class="ghost icon-only" title="Refresh" aria-label="Refresh">
+                        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    </button>
+                </div>
+            </header>
+
+            <div id="emailLayout" class="messages-layout">
+                <div class="list-pane">
+                    <div class="list-toolbar">
+                        <label class="check-label admin-only"><input type="checkbox" id="selectAllCheckbox" /> Select all</label>
+                        <span id="selectionInfo" class="muted"></span>
+                        <span class="spacer"></span>
+                        <button id="exportSelectedButton" type="button" class="ghost" disabled title="Download the selected emails as a zip of .eml files">Export selected</button>
+                        <button id="deleteSelectedButton" type="button" class="danger-ghost admin-only" disabled>Delete selected</button>
+                    </div>
+                    <ul id="messageList" class="message-list"></ul>
+                    <div class="list-footer">
+                        <div id="pagination" class="pager">
+                            <button id="prevPage" type="button" class="ghost" disabled>‹ Prev</button>
+                            <span id="pageInfo"></span>
+                            <button id="nextPage" type="button" class="ghost" disabled>Next ›</button>
+                        </div>
+                        <label class="page-size">
+                            Per page
+                            <select id="pageSizeSelect">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="paneResizer" class="pane-resizer" role="separator" aria-orientation="vertical"
+                     aria-label="Resize email pane" tabindex="0" title="Drag to resize · double-click to reset"></div>
+
+                <aside id="selectedMessageContainer" class="detail-pane">
+                    <div id="detailEmpty" class="empty-state">Select an email to read it.</div>
+                    <div id="detailBody" class="hidden">
+                        <div class="detail-head">
+                            <h2 id="selectedMessageTitle"></h2>
+                            <span id="selectedMessageKey" class="chip hidden"></span>
+                        </div>
+                        <dl id="selectedMessageMeta" class="detail-meta"></dl>
+                        <div class="detail-actions">
+                            <button type="button" id="copyCodeButton" class="ghost small hidden">Copy code</button>
+                            <button type="button" id="copyMessageButton" class="ghost small">Copy text</button>
+                            <a id="downloadEmlLink" class="button-link small" href="#" download>Download .eml</a>
+                        </div>
+                        <div class="body-toolbar">
+                            <div id="viewSwitch" class="segmented" role="group" aria-label="Email view"></div>
+                        </div>
+                        <div id="selectedMessageText" class="message-body"></div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <!-- ===== SMS ===== -->
+        <section id="viewSms" class="view hidden" data-view="sms">
+            <header class="view-header">
+                <div class="view-title">
+                    <h1>SMS</h1>
+                    <span id="smsInfo" class="muted"></span>
+                    <span id="smsLiveStatus" class="live hidden" title="New messages appear as they arrive">Live</span>
+                    <button type="button" id="smsRangeChip" class="filter-chip hidden" title="Clear time range">
+                        <span id="smsRangeChipText"></span>
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <div class="toolbar">
+                    <input type="search" id="smsSearchInput" placeholder="Search text, phone, sender" aria-label="Search SMS" />
+                    <label class="date-field"><span>From</span><input type="date" id="smsStartDate" /></label>
+                    <label class="date-field"><span>To</span><input type="date" id="smsEndDate" /></label>
+                    <button id="smsSearchButton" type="button" class="primary">Search</button>
+                    <button id="smsResetButton" type="button" class="ghost" title="Clear filters">Reset</button>
+                    <button id="smsRefreshButton" type="button" class="ghost icon-only" title="Refresh" aria-label="Refresh">
+                        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    </button>
+                </div>
+            </header>
+
+            <div id="smsLayout" class="messages-layout">
+                <div class="list-pane">
+                    <div class="list-toolbar">
+                        <label class="check-label admin-only"><input type="checkbox" id="smsSelectAll" /> Select all</label>
+                        <span id="smsSelectionInfo" class="muted"></span>
+                        <span class="spacer"></span>
+                        <button id="smsDeleteSelected" type="button" class="danger-ghost admin-only" disabled>Delete selected</button>
+                    </div>
+                    <ul id="smsList" class="message-list"></ul>
+                    <div class="list-footer">
+                        <div class="pager">
+                            <button id="smsPrev" type="button" class="ghost" disabled>‹ Prev</button>
+                            <span id="smsPageInfo"></span>
+                            <button id="smsNext" type="button" class="ghost" disabled>Next ›</button>
+                        </div>
+                        <label class="page-size">
+                            Per page
+                            <select id="smsPageSize">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="smsPaneResizer" class="pane-resizer" role="separator" aria-orientation="vertical"
+                     aria-label="Resize message pane" tabindex="0" title="Drag to resize · double-click to reset"></div>
+
+                <aside class="detail-pane">
+                    <div id="smsDetailEmpty" class="empty-state">Select a message to see its details.</div>
+                    <div id="smsDetailBody" class="hidden">
+                        <div class="detail-head">
+                            <h2 id="smsTitle"></h2>
+                            <span id="smsKey" class="chip hidden"></span>
+                        </div>
+                        <dl class="detail-meta">
+                            <dt>Received</dt><dd id="smsTimestamp"></dd>
+                            <dt>Phone</dt><dd id="smsPhone" class="mono"></dd>
+                            <dt>Length</dt><dd id="smsLength"></dd>
+                        </dl>
+                        <div class="detail-actions">
+                            <button type="button" id="smsCopyMessage" class="ghost small">Copy message</button>
+                            <button type="button" id="smsCopyCode" class="ghost small hidden">Copy code</button>
+                        </div>
+                        <div class="body-toolbar">
+                            <span id="smsFormatBadge" class="format-badge" title="Detected format"></span>
+                            <div id="smsViewSwitch" class="segmented" role="group" aria-label="Message view"></div>
+                        </div>
+                        <div id="smsBody" class="message-body"></div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <!-- ===== Send test ===== -->
+        <section id="viewSend" class="view hidden" data-view="send">
+            <header class="view-header">
+                <div class="view-title">
+                    <h1>Send test message</h1>
+                    <span class="muted">Stored as if your app had sent it. Nothing is delivered anywhere.</span>
+                </div>
+                <div id="sendChannel" class="segmented" role="group" aria-label="Channel">
+                    <button type="button" data-channel="email" class="active" aria-pressed="true">Email</button>
+                    <button type="button" data-channel="sms" aria-pressed="false">SMS</button>
+                </div>
+            </header>
+
+            <div id="sendEmail" class="send-layout">
+                <form id="messageForm" class="card" novalidate>
+                    <div class="field-row">
+                        <div class="field">
+                            <label for="fromInput">From</label>
+                            <input type="email" id="fromInput" placeholder="noreply@example.com" autocomplete="off" />
+                            <small class="field-error" id="fromError"></small>
+                        </div>
+                        <div class="field">
+                            <label for="toInput">To <span class="optional">comma separated</span></label>
+                            <input type="text" id="toInput" placeholder="user@example.com" autocomplete="off" />
+                            <small class="field-error" id="toError"></small>
+                        </div>
+                    </div>
+                    <div class="field-row">
+                        <div class="field">
+                            <label for="ccInput">Cc <span class="optional">optional</span></label>
+                            <input type="text" id="ccInput" placeholder="team@example.com" autocomplete="off" />
+                            <small class="field-error" id="ccError"></small>
+                        </div>
+                        <div class="field">
+                            <label for="bccInput">Bcc <span class="optional">optional, not in the headers</span></label>
+                            <input type="text" id="bccInput" placeholder="audit@example.com" autocomplete="off" />
+                            <small class="field-error" id="bccError"></small>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="subjectInput">Subject <span class="optional">optional</span></label>
+                        <input type="text" id="subjectInput" placeholder="Verify your email address" maxlength="255" autocomplete="off" />
+                        <small class="field-error" id="subjectError"></small>
+                    </div>
+                    <div class="field">
+                        <label for="textInput">Text body</label>
+                        <textarea id="textInput" rows="6" placeholder="Your verification code is 123456"></textarea>
+                        <small class="field-error" id="textError"></small>
+                    </div>
+                    <div class="field">
+                        <label for="htmlInput">HTML body <span class="optional">optional</span></label>
+                        <textarea id="htmlInput" rows="5" class="mono" placeholder="&lt;p&gt;Your verification code is &lt;b&gt;123456&lt;/b&gt;&lt;/p&gt;"></textarea>
+                        <div class="field-meta">
+                            <small class="field-error" id="htmlError"></small>
+                            <small id="bodyCounter" class="counter"></small>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="attachmentsInput">Attachments <span class="optional">optional, up to 5 files, 2 MB each</span></label>
+                        <input type="file" id="attachmentsInput" multiple />
+                        <ul id="attachmentList" class="file-list"></ul>
+                        <small class="field-error" id="attachmentsError"></small>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="sampleEmailButton" class="link-button">Fill sample email</button>
+                        <span class="spacer"></span>
+                        <button type="button" id="clearFormButton" class="ghost">Clear</button>
+                        <button type="submit" id="sendButton" class="primary">Send email</button>
+                    </div>
+                    <p id="formStatus" class="form-status" role="status"></p>
+                </form>
+
+                <aside class="card result-card">
+                    <h3>Last response</h3>
+                    <pre id="lastResponse" class="code muted-code">Send an email to see the API response here.</pre>
+                    <a href="#/messages" id="viewInMessages" class="link-button hidden">View in Emails →</a>
+                    <h3>Equivalent SMTP command</h3>
+                    <pre id="equivalentCommand" class="code"></pre>
+                </aside>
+            </div>
+
+            <div id="sendSms" class="send-layout hidden">
+                <form id="smsForm" class="card" novalidate>
+                    <div class="field-row">
+                        <div class="field">
+                            <label for="smsSenderInput">Sender <span class="optional">optional</span></label>
+                            <input type="text" id="smsSenderInput" placeholder="MyApp" maxlength="64" autocomplete="off" />
+                            <small class="field-error" id="smsSenderError"></small>
+                        </div>
+                        <div class="field">
+                            <label for="smsPhoneInput">Phone</label>
+                            <input type="tel" id="smsPhoneInput" placeholder="+15551234567" autocomplete="off" />
+                            <small class="field-error" id="smsPhoneError"></small>
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="smsMessageInput">Message</label>
+                        <textarea id="smsMessageInput" rows="7" maxlength="1600" placeholder="Your OTP is 123456"></textarea>
+                        <div class="field-meta">
+                            <small class="field-error" id="smsMessageError"></small>
+                            <small id="smsMessageCounter" class="counter">0 / 1600</small>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="smsSampleButton" class="link-button">Fill sample OTP</button>
+                        <span class="spacer"></span>
+                        <button type="button" id="smsClearButton" class="ghost">Clear</button>
+                        <button type="submit" id="smsSendButton" class="primary">Send message</button>
+                    </div>
+                    <p id="smsFormStatus" class="form-status" role="status"></p>
+                </form>
+
+                <aside class="card result-card">
+                    <h3>Last response</h3>
+                    <pre id="smsLastResponse" class="code muted-code">Send a message to see the API response here.</pre>
+                    <a href="#/sms" id="smsViewInMessages" class="link-button hidden">View in SMS →</a>
+                    <h3>Equivalent request</h3>
+                    <pre id="smsEquivalentCurl" class="code"></pre>
+                </aside>
+            </div>
+        </section>
+
+        <!-- ===== API keys ===== -->
+        <section id="viewKeys" class="view hidden" data-view="keys">
+            <header class="view-header">
+                <div class="view-title">
+                    <h1>API keys</h1>
+                    <span class="muted">Send keys let your apps submit SMS messages. Read keys let your tests list emails and SMS and read verification codes and links; a Read key can be limited to some email inboxes. Email itself arrives over SMTP, no key needed.</span>
+                </div>
+                <button type="button" id="newKeyButton" class="primary">New key</button>
+            </header>
+
+            <form id="newKeyForm" class="card key-form hidden" novalidate>
+                <div class="field">
+                    <label for="keyNameInput">Name</label>
+                    <input type="text" id="keyNameInput" maxlength="64" placeholder="ci-tests" autocomplete="off" />
+                    <small class="field-error" id="keyNameError"></small>
+                </div>
+                <div class="field">
+                    <label for="keyScopeInput">Type</label>
+                    <select id="keyScopeInput">
+                        <option value="read">Read: list emails and SMS, read codes and links</option>
+                        <option value="send">Send: submit SMS (POST /api/sms)</option>
+                    </select>
+                </div>
+                <div id="keyRecipientsField" class="field">
+                    <label for="keyRecipientsInput">Limit to recipients <span class="optional">optional, email only</span></label>
+                    <input type="text" id="keyRecipientsInput" placeholder="ci-1@example.com, example.org, *.test.local" autocomplete="off" />
+                    <small class="field-error" id="keyRecipientsError"></small>
+                </div>
+                <div class="key-form-actions">
+                    <button type="button" id="cancelKeyButton" class="ghost">Cancel</button>
+                    <button type="submit" id="createKeyButton" class="primary">Create key</button>
+                </div>
+            </form>
+
+            <div id="newKeyResult" class="card key-result hidden" role="status">
+                <div class="key-result-head">
+                    <h3>Key created: <span id="newKeyName"></span></h3>
+                    <button type="button" id="dismissKeyResult" class="ghost small">Done</button>
+                </div>
+                <div class="secret-row">
+                    <code id="newKeySecret"></code>
+                    <button type="button" id="copyNewKey" class="primary small">Copy key</button>
+                </div>
+                <div class="code-header">
+                    <h4>Try it</h4>
+                    <button type="button" class="copy-button" data-copy="newKeyExample">Copy</button>
+                </div>
+                <pre class="code" id="newKeyExample"></pre>
+            </div>
+
+            <div class="card keys-card">
+                <table class="keys-table">
+                    <thead>
+                        <tr><th>Name</th><th>Type</th><th>Key</th><th>Access</th><th>Last used</th><th>Created</th><th></th></tr>
+                    </thead>
+                    <tbody id="keysBody"></tbody>
+                </table>
+                <p id="keysEmpty" class="empty-state hidden">No API keys yet. Create a Send key so an app can submit SMS, or a Read key so your tests can read messages.</p>
+            </div>
+            <p id="keysFootnote" class="hint"></p>
+        </section>
+
+        <!-- ===== Setup & API ===== -->
+        <section id="viewApi" class="view hidden" data-view="api">
+            <header class="view-header">
+                <div class="view-title">
+                    <h1>Setup &amp; API</h1>
+                    <span class="muted">Examples use this server's address.</span>
+                </div>
+            </header>
+
+            <div class="api-layout">
+                <article class="card">
+                    <h3>Send mail to this server</h3>
+                    <p class="hint">Point your app's SMTP settings here. Every message is stored and shown in <a href="#/messages">Emails</a>; nothing is relayed to the real recipients.</p>
+                    <div class="endpoint">
+                        <span class="method method-post">SMTP</span>
+                        <code id="smtpAddress">localhost:1025</code>
+                        <button type="button" class="copy-button" data-copy="smtpAddress">Copy</button>
+                    </div>
+                    <table class="ref-table">
+                        <tr><th>Login</th><td id="smtpAuthNote"></td></tr>
+                        <tr><th>Encryption</th><td id="smtpEncryptionNote"></td></tr>
+                        <tr><th>Recipients</th><td id="smtpRecipientsNote"></td></tr>
+                        <tr><th>Size</th><td>Messages over <code>MAX_EMAIL_SIZE_MB</code> (10 MB by default) are rejected with <code>552</code></td></tr>
+                    </table>
+
+                    <div class="code-header">
+                        <h4>Environment variables</h4>
+                        <button type="button" class="copy-button" data-copy="envExample">Copy</button>
+                    </div>
+                    <pre class="code" id="envExample"></pre>
+
+                    <div class="code-header">
+                        <h4>Nodemailer</h4>
+                        <button type="button" class="copy-button" data-copy="nodemailerExample">Copy</button>
+                    </div>
+                    <pre class="code" id="nodemailerExample"></pre>
+                </article>
+
+                <article id="simulateCard" class="card">
+                    <h3>Simulate delivery failures</h3>
+                    <p class="hint">Send to one of these special recipients to see how your app handles a refusal. The part after <code>+</code> (or <code>.</code>, <code>_</code>, <code>-</code>) is ignored, so <code>reject+signup@example.com</code> works too. Turn this off with <code>SMTP_SIMULATE=false</code>.</p>
+                    <table class="ref-table">
+                        <tr><th><code>reject@</code></th><td><code>550</code> mailbox unavailable (permanent failure)</td></tr>
+                        <tr><th><code>tempfail@</code></th><td><code>451</code> temporary failure, try again later</td></tr>
+                        <tr><th><code>full@</code></th><td><code>452</code> mailbox full</td></tr>
+                        <tr><th><code>slow@</code></th><td>Accepted after 5 seconds. <code>slow10@</code> waits 10 seconds (at most 30)</td></tr>
+                        <tr><th><code>datafail@</code></th><td>The recipient is accepted, then the message is refused with <code>554</code> and not stored</td></tr>
+                    </table>
+                    <p class="hint">Other recipients on the same message are still accepted, as with a real server.</p>
+                </article>
+
+                <article class="card">
+                    <h3>Read emails from scripts and tests</h3>
+                    <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> (or <code>X-API-Key</code>) with a <b>Read</b> key from the <a href="#/keys">API keys</a> page, or <code>ADMIN_TOKEN</code> (everything, including delete). Tests can use the <code>client/</code> helper (<code>waitForCode</code>, <code>waitForLink</code>); see the README.</p>
+                    <table class="ref-table endpoints">
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/latest?to=…</code><br>Newest matching email with its body, or 404. Includes <code>code</code> (the detected one-time code, or <code>null</code>) and <code>links</code> (every http(s) link)</td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/events</code><br>Server-Sent Events for both channels: an <code>email</code> event (the summary) per email and an <code>sms</code> event (phone masked, with its code) per SMS stored from now on. The dashboard uses it to update live</td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/export?ids=1,2,3</code><br>A zip of the original <code>.eml</code> files (up to 100 emails)</td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/metrics</code><br>Prometheus metrics (emails received, rejections, webhook and relay results, stored emails). Same access as reading emails</td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/wait?to=…&amp;timeout=30</code><br>Waits for a matching email (one that is already stored is returned at once), or answers <code>408</code>. Same body as <code>/latest</code>; <code>timeout</code> is 1&ndash;120 seconds</td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails</code><br>Summaries without bodies. Filters: <code>search</code>, <code>to</code> (exact address), <code>from</code>, <code>subject</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100)</td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id</code><br>One email: <code>text</code>, <code>html</code>, <code>headers</code>, <code>attachments</code> (each with a download <code>url</code>), <code>code</code>, <code>links</code> and deliverability <code>checks</code></td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id/thread</code><br>The emails in the same conversation (<code>Message-ID</code>, <code>In-Reply-To</code>, <code>References</code>), oldest first</td></tr>
+                        <tr><th><span class="method method-post">POST</span></th><td><code>/api/emails/:id/check-links</code><br>Admin. Requests each link in the email and reports its status</td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id/raw</code><br>The original message (add <code>?download=true</code> for an .eml file)</td></tr>
+                        <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/emails/:id</code></td></tr>
+                        <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/emails</code> with <code>{ "ids": [1, 2] }</code>, or <code>/api/emails?to=user@example.com</code> to empty one inbox</td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/health</code><br>Public; <code>{ "status": "ok" }</code> when the database is reachable</td></tr>
+                    </table>
+
+                    <div class="code-header">
+                        <h4>Read the latest email for an address</h4>
+                        <button type="button" class="copy-button" data-copy="curlLatest">Copy</button>
+                    </div>
+                    <pre class="code" id="curlLatest"></pre>
+
+                    <div class="code-header">
+                        <h4>In a JavaScript test</h4>
+                        <button type="button" class="copy-button" data-copy="jsLatest">Copy</button>
+                    </div>
+                    <pre class="code" id="jsLatest"></pre>
+                </article>
+
+                <article class="card">
+                    <h3>Send an SMS</h3>
+                    <p class="hint">The SMS gateway: point your application's SMS integration at this endpoint instead of a real provider. Nothing is delivered to a phone.</p>
+                    <div class="endpoint">
+                        <span class="method method-post">POST</span>
+                        <code id="smsEndpoint">/api/sms</code>
+                        <button type="button" class="copy-button" data-copy="smsEndpoint">Copy</button>
+                    </div>
+
+                    <h4>Headers</h4>
+                    <table class="ref-table">
+                        <tr><th>Content-Type</th><td><code>application/json</code></td></tr>
+                        <tr><th>X-API-Key</th><td>A <b>Send</b> key from the <a href="#/keys">API keys</a> page</td></tr>
+                        <tr><th>Authorization</th><td>Or, for clients that can't set custom headers: <code>Bearer &lt;Send key&gt;</code></td></tr>
+                    </table>
+
+                    <h4>Body</h4>
+                    <table class="ref-table">
+                        <tr><th>sender</th><td>Optional, up to 64 characters</td></tr>
+                        <tr><th>phone</th><td>Required. 6&ndash;15 digits, optional leading <code>+</code>. Spaces, dashes, dots and brackets are removed.</td></tr>
+                        <tr><th>message</th><td>Required, up to 1600 characters</td></tr>
+                    </table>
+
+                    <div class="code-header">
+                        <h4>Example</h4>
+                        <button type="button" class="copy-button" data-copy="curlSmsSend">Copy</button>
+                    </div>
+                    <pre class="code" id="curlSmsSend"></pre>
+
+                    <h4>Responses</h4>
+                    <table class="ref-table">
+                        <tr><th><span class="status ok">201</span></th><td>Stored. Returns <code>{ success, id, timestamp }</code></td></tr>
+                        <tr><th><span class="status err">400</span></th><td>Invalid input; <code>details</code> lists the problem per field</td></tr>
+                        <tr><th><span class="status err">401</span></th><td>Missing or unknown API key</td></tr>
+                        <tr><th><span class="status err">429</span></th><td>Rate limit exceeded (<code>SMS_RATE_LIMIT</code>)</td></tr>
+                    </table>
+                </article>
+
+                <article class="card">
+                    <h3>Read SMS from scripts and tests</h3>
+                    <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> with a <b>Read</b> key (a Read key limited to some email inboxes can't read SMS) or <code>ADMIN_TOKEN</code>. Phone numbers are masked unless you add <code>unmask=true</code>.</p>
+                    <table class="ref-table endpoints">
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms/latest?phone=&hellip;</code><br>Newest matching message, or 404. Includes <code>code</code>: the detected OTP, or <code>null</code></td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms/wait?phone=&hellip;&amp;timeout=30</code><br>Waits for a matching message (one already stored is returned at once), or answers <code>408</code></td></tr>
+                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms</code><br><code>search</code>, <code>phone</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100)</td></tr>
+                        <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/sms/:id</code>, <code>/api/sms</code> with <code>{ "ids": [1, 2] }</code>, or <code>/api/sms?phone=&hellip;</code> to empty one number. Admin only</td></tr>
+                    </table>
+
+                    <div class="code-header">
+                        <h4>Read the latest OTP</h4>
+                        <button type="button" class="copy-button" data-copy="curlSmsLatest">Copy</button>
+                    </div>
+                    <pre class="code" id="curlSmsLatest"></pre>
+
+                    <div class="code-header">
+                        <h4>In a JavaScript test</h4>
+                        <button type="button" class="copy-button" data-copy="jsSmsLatest">Copy</button>
+                    </div>
+                    <pre class="code" id="jsSmsLatest"></pre>
+                </article>
+            </div>
+        </section>
+    </main>
+    <script src="formatters.js"></script>
+    <script src="scripts.js"></script>
+    <script src="sms.js"></script>
+</body>
+</html>

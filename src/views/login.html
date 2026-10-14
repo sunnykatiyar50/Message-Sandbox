@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in · Messaging Test Service</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Applies the saved theme before first paint -->
+    <script src="theme.js"></script>
+</head>
+<body class="login-page">
+    <main class="login-shell">
+        <section class="login-brand" aria-hidden="true">
+            <div class="brand-mark">
+                <svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <h1>Messaging Test Service</h1>
+            <p class="tagline">Catch every SMS and email your app sends, from OTPs to sign-up links, without messaging a real person.</p>
+            <ul class="brand-points">
+                <li>Point your SMS integration and SMTP settings here</li>
+                <li>Inspect, search and clean up captured SMS and email</li>
+                <li>Read OTPs and verification links straight from your E2E tests</li>
+            </ul>
+        </section>
+
+        <section class="login-panel">
+            <button type="button" class="theme-corner icon-only ghost" data-theme-toggle>
+                <svg class="theme-icon theme-icon-system" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                <svg class="theme-icon theme-icon-light" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                <svg class="theme-icon theme-icon-dark" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </button>
+            <form id="loginForm" class="login-card" novalidate>
+                <h2>Sign in</h2>
+                <p class="login-hint">Use the admin credentials from the server's <code>.env</code> file.</p>
+
+                <div class="field">
+                    <label for="usernameInput">Username</label>
+                    <input type="text" id="usernameInput" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
+                </div>
+
+                <div class="field">
+                    <label for="passwordInput">Password</label>
+                    <div class="password-wrap">
+                        <input type="password" id="passwordInput" autocomplete="current-password" required />
+                        <button type="button" id="togglePassword" class="icon-button" aria-label="Show password" aria-pressed="false">
+                            <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </div>
+                    <small id="capsLockHint" class="caps-hint hidden">Caps Lock is on</small>
+                </div>
+
+                <p id="loginError" class="login-error hidden" role="alert"></p>
+
+                <button type="submit" id="loginButton" class="primary block">Sign in</button>
+            </form>
+            <p class="login-footer">Forgot the credentials? They're set by <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code>.</p>
+        </section>
+    </main>
+    <script src="login.js"></script>
+</body>
+</html>

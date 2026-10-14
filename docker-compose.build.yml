@@ -1,0 +1,9 @@
+# Builds the image from this source tree instead of pulling the published one. Layer it over the main file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Everything else (ports, volumes, .env) comes from docker-compose.yml.
+services:
+  messaging-test-service:
+    build: .
+    image: messaging-test-service:local

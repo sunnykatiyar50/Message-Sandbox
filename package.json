@@ -1,0 +1,35 @@
+{
+  "name": "messaging-test-service",
+  "version": "1.0.0",
+  "description": "Mock SMS gateway and mail server for testing: captures outgoing SMS and email and shows them in one web dashboard.",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/app.js",
+    "cert": "node src/certs/cli.js",
+    "release": "node scripts/release.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/app.js",
+    "test": "node --disable-warning=ExperimentalWarning --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "acme-client": "^5.4.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "html-to-text": "^10.0.1",
+    "mailparser": "^3.7.0",
+    "mysql2": "^3.24.5",
+    "nodemailer": "^10.1.0",
+    "pg": "^8.16.0",
+    "smtp-server": "^3.13.0"
+  },
+  "devDependencies": {
+    "selfsigned": "^5.5.0",
+    "supertest": "^7.3.1"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.13"
+  }
+}
