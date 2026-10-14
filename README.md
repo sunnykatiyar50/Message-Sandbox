@@ -96,7 +96,7 @@ Generate random values with `node -e "console.log(require('crypto').randomBytes(
 
 Start it from the project root. Then:
 
-1. Open `http://localhost:30004` and sign in with `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD`.
+1. Open `http://localhost:30005` and sign in with `ADMIN_USERNAME` (default `admin`) and `ADMIN_PASSWORD`.
 2. Point your application's SMS integration at **`POST /api/sms`** (create a **Send** key on the **API keys** page first) and its SMTP settings at **`localhost:1025`**.
 3. Send an SMS or an email. It appears under **SMS** or **Emails**, newest first. **Send test** stores one without an application.
 
@@ -143,7 +143,7 @@ Point your application's SMS integration at `POST /api/sms` instead of a provide
 | `message` | string | Required. The text, at most 1600 characters |
 
 ```
-curl -X POST http://localhost:30004/api/sms \
+curl -X POST http://localhost:30005/api/sms \
   -H "Content-Type: application/json" -H "X-API-Key: $SEND_KEY" \
   -d '{"sender": "MyApp", "phone": "+15551234567", "message": "Your OTP is 123456"}'
 ```
@@ -181,7 +181,7 @@ The phone number is matched exactly as stored (after the formatting characters a
 The dashboard opens `GET /api/events`, a [Server-Sent Events](https://developer.mozilla.org/docs/Web/API/Server-sent_events) stream, and reloads the list when an email or an SMS arrives (a **Live** marker shows next to the title, and new rows flash once). Scripts can use it too, for example to watch messages arrive:
 
 ```
-curl -N -H "Authorization: Bearer $API_KEY" http://localhost:30004/api/events
+curl -N -H "Authorization: Bearer $API_KEY" http://localhost:30005/api/events
 ```
 
 Each stored email produces `event: email` with the email's summary as JSON `data:`, and each SMS produces `event: sms` with the message (phone masked, with its `code`); a comment line every 25 seconds keeps idle connections open. A key limited to some email inboxes only receives events for those emails and none for SMS. Behind a reverse proxy, turn response buffering off for this path (the server already sends `X-Accel-Buffering: no` for nginx). At most 100 streams are open at once.
@@ -208,7 +208,7 @@ Entries are addresses, domains (`example.org`) or subdomain wildcards (`*.test.l
 scrape_configs:
   - job_name: message-sandbox
     authorization: { credentials: ms_read_... }   # a Read key
-    static_configs: [{ targets: ['localhost:30004'] }]
+    static_configs: [{ targets: ['localhost:30005'] }]
 ```
 
 | Metric | Type | Description |
@@ -386,7 +386,7 @@ Your application usually sends the mail a moment after the action, so use `/api/
 A long poll that takes the same filters as `GET /api/emails` and answers as soon as a matching email exists, with the same body as `/latest`. An email that is already stored is returned immediately; otherwise the request waits up to `timeout` seconds (default `30`, at most `120`) and answers `408` if nothing arrives. Use a unique recipient per test, or `after`, so a test doesn't pick up an older email.
 
 ```
-curl -H "Authorization: Bearer $API_KEY" "http://localhost:30004/api/emails/wait?to=user@example.com&timeout=15"
+curl -H "Authorization: Bearer $API_KEY" "http://localhost:30005/api/emails/wait?to=user@example.com&timeout=15"
 ```
 
 ## End-to-end tests
@@ -395,7 +395,7 @@ The `client/` folder holds a dependency-free helper (Node 18+; copy `client/inde
 
 ```js
 const { createClient } = require('./client');
-const mail = createClient({ baseUrl: 'http://localhost:30004', apiKey: process.env.MESSAGE_SANDBOX_API_KEY });
+const mail = createClient({ baseUrl: 'http://localhost:30005', apiKey: process.env.MESSAGE_SANDBOX_API_KEY });
 
 test('sign-up sends a verification code', async ({ page }) => {
   const to = `user-${Date.now()}@example.com`;       // a unique recipient keeps tests apart
@@ -459,7 +459,7 @@ For an SMS the payload is `{ "event": "sms.received", "sms": { "id", "sender", "
 
 ## Running with Docker
 
-The image is published to GitHub Container Registry as `ghcr.io/<owner>/message-sandbox` for `linux/amd64` and `linux/arm64`, and runs as the unprivileged `node` user (UID 1000). It exposes the dashboard on `30004` and SMTP on `1025`.
+The image is published to GitHub Container Registry as `ghcr.io/<owner>/message-sandbox` for `linux/amd64` and `linux/arm64`, and runs as the unprivileged `node` user (UID 1000). It exposes the dashboard on `30005` and SMTP on `1025`.
 
 ```
 cp sample.env .env       # fill in at least ADMIN_PASSWORD and SESSION_SECRET
@@ -467,15 +467,15 @@ docker compose up -d
 docker compose pull && docker compose up -d     # update later
 ```
 
-Dashboard at `http://localhost:30004`, SMTP at `localhost:1025`. Emails and logs are kept in the `message-sandbox-data` and `message-sandbox-logs` volumes (`docker compose down -v` deletes them). Keep `SQLITE_PATH` and `LOG_DIR` unset in `.env` when using Docker. For bind mounts instead of volumes, the folders must be writable by UID 1000 (`sudo mkdir -p ./data ./logs && sudo chown -R 1000:1000 ./data ./logs`); the container explains this at startup if not. To use bind mounts, uncomment the `./data` and `./logs` lines in `docker-compose.yml` in place of the volumes.
+Dashboard at `http://localhost:30005`, SMTP at `localhost:1025`. Emails and logs are kept in the `message-sandbox-data` and `message-sandbox-logs` volumes (`docker compose down -v` deletes them). Keep `SQLITE_PATH` and `LOG_DIR` unset in `.env` when using Docker. For bind mounts instead of volumes, the folders must be writable by UID 1000 (`sudo mkdir -p ./data ./logs && sudo chown -R 1000:1000 ./data ./logs`); the container explains this at startup if not. To use bind mounts, uncomment the `./data` and `./logs` lines in `docker-compose.yml` in place of the volumes.
 
-To publish SMTP over TLS, set `SMTP_TLS_PORT` in `.env` and uncomment the matching port line. For a certificate, uncomment the `./certs:/certs:ro` volume and set `SMTP_TLS_KEY=/certs/key.pem` and `SMTP_TLS_CERT=/certs/cert.pem`. To listen on a single interface only, prefix an address to the port mapping, for example `"100.110.180.13:${PORT:-30004}:${PORT:-30004}"`. For databases other than SQLite, see [Database setup](#database-setup).
+To publish SMTP over TLS, set `SMTP_TLS_PORT` in `.env` and uncomment the matching port line. For a certificate, uncomment the `./certs:/certs:ro` volume and set `SMTP_TLS_KEY=/certs/key.pem` and `SMTP_TLS_CERT=/certs/cert.pem`. To listen on a single interface only, prefix an address to the port mapping, for example `"100.110.180.13:${PORT:-30005}:${PORT:-30005}"`. For databases other than SQLite, see [Database setup](#database-setup).
 
 Without Compose:
 
 ```
 docker run -d --name message-sandbox --init --restart unless-stopped \
-  --env-file .env -p 30004:30004 -p 1025:1025 \
+  --env-file .env -p 30005:30005 -p 1025:1025 \
   -v message-sandbox-data:/app/data -v message-sandbox-logs:/app/logs \
   ghcr.io/<owner>/message-sandbox:latest
 ```
@@ -533,7 +533,7 @@ See `sample.env` for a commented template.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `30004` | Dashboard and API port |
+| `PORT` | `30005` | Dashboard and API port |
 | `SMTP_PORT` | `1025` | SMTP port |
 | `SMTP_HOST` | `0.0.0.0` | Interface the SMTP server listens on |
 | `SMTP_USERNAME`, `SMTP_PASSWORD` | — | Optional. Set both to require SMTP login |

@@ -15,7 +15,7 @@ services:
     user: 1000:1000
     env_file: .env
     ports:
-      - "${PORT:-30004}:${PORT:-30004}"
+      - "${PORT:-30005}:${PORT:-30005}"
       - "${SMTP_PORT:-1025}:${SMTP_PORT:-1025}"
       # when SMTP_TLS_PORT is set:
       # - "${SMTP_TLS_PORT:-1465}:${SMTP_TLS_PORT:-1465}"

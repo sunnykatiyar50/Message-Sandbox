@@ -5,6 +5,15 @@ const { parseRules, describeRule } = require('../utils/recipients');
 
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$/;
 
+// Why a key name can't be used, or '' when it can. exceptId is the key being renamed.
+async function nameProblem(apiKeyModel, name, exceptId = 0) {
+    if (!NAME_RE.test(name)) {
+        return 'must be 1-64 characters: letters, digits, spaces, dots, dashes or underscores, starting with a letter or digit';
+    }
+    if (name.toLowerCase() === 'dashboard' || (await apiKeyModel.nameExists(name, exceptId))) return 'is already used by another key';
+    return '';
+}
+
 function parseId(value) {
     return /^[1-9][0-9]{0,15}$/.test(String(value)) ? Number(value) : null;
 }
@@ -29,11 +38,8 @@ function createApiKeyRoutes({ apiKeyModel, auth, config }) {
         const body = req.body || {};
         const name = typeof body.name === 'string' ? body.name.trim() : '';
         const errors = {};
-        if (!NAME_RE.test(name)) {
-            errors.name = 'must be 1-64 characters: letters, digits, spaces, dots, dashes or underscores, starting with a letter or digit';
-        } else if (name.toLowerCase() === 'dashboard' || (await apiKeyModel.nameExists(name))) {
-            errors.name = 'is already used by another key';
-        }
+        const problem = await nameProblem(apiKeyModel, name);
+        if (problem) errors.name = problem;
         // Optional: limit the key to some inboxes ("a@x.com, example.com, *.test.local"; a list or comma separated text)
         let allowedRecipients = [];
         try {
@@ -54,6 +60,19 @@ function createApiKeyRoutes({ apiKeyModel, auth, config }) {
         res.status(201).json({ key, secret });
     });
 
+    // Rename an active key. Only the name changes: the secret, type and limits stay as they are.
+    router.patch('/:id', async (req, res) => {
+        const id = parseId(req.params.id);
+        const name = typeof (req.body || {}).name === 'string' ? req.body.name.trim() : '';
+        const problem = id ? await nameProblem(apiKeyModel, name, id) : '';
+        if (problem) return res.status(400).json({ error: 'Validation failed', details: { name: problem } });
+        const result = id && (await apiKeyModel.rename(id, name));
+        if (!result) return res.status(404).json({ error: 'Key not found' });
+        if (result.revoked) return res.status(409).json({ error: 'A revoked key cannot be renamed' });
+        if (result.previousName !== name) logToFile(`API key renamed: "${result.previousName}" -> "${name}" from ${req.ip}`);
+        res.json({ key: result.key });
+    });
+
     // POST rather than GET: cookie-authenticated POSTs need the CSRF header, so another site
     // can't trigger it, and nothing in between will cache it
     router.post('/:id/reveal', async (req, res) => {
@@ -70,8 +89,16 @@ function createApiKeyRoutes({ apiKeyModel, auth, config }) {
         res.json({ secret: found.secret });
     });
 
+    // DELETE revokes an active key. With ?permanent=true it removes a key that is already revoked.
     router.delete('/:id', async (req, res) => {
         const id = parseId(req.params.id);
+        if (req.query.permanent === 'true') {
+            const removed = id && (await apiKeyModel.remove(id));
+            if (!removed) return res.status(404).json({ error: 'Key not found' });
+            if (!removed.deleted) return res.status(409).json({ error: 'Revoke this key before deleting it' });
+            logToFile(`API key deleted: "${removed.key.name}" from ${req.ip}`);
+            return res.json({ deleted: true });
+        }
         const result = id && (await apiKeyModel.revoke(id));
         if (!result) return res.status(404).json({ error: 'Key not found' });
         if (result.changed) logToFile(`API key revoked: "${result.key.name}" from ${req.ip}`);

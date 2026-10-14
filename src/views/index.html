@@ -255,11 +255,18 @@
                     <h1>Send test message</h1>
                     <span class="muted">Stored as if your app had sent it. Nothing is delivered anywhere.</span>
                 </div>
-                <div id="sendChannel" class="segmented" role="group" aria-label="Channel">
-                    <button type="button" data-channel="email" class="active" aria-pressed="true">Email</button>
-                    <button type="button" data-channel="sms" aria-pressed="false">SMS</button>
-                </div>
             </header>
+
+            <div id="sendChannel" class="channel-switch" role="group" aria-label="Channel">
+                <button type="button" data-channel="email" class="active" aria-pressed="true">
+                    <span class="channel-name">Email</span>
+                    <span class="channel-sub">SMTP message</span>
+                </button>
+                <button type="button" data-channel="sms" aria-pressed="false">
+                    <span class="channel-name">SMS</span>
+                    <span class="channel-sub">Text message</span>
+                </button>
+            </div>
 
             <div id="sendEmail" class="send-layout">
                 <form id="messageForm" class="card" novalidate>
@@ -442,139 +449,185 @@
             </header>
 
             <div class="api-layout">
-                <article class="card">
-                    <h3>Send mail to this server</h3>
-                    <p class="hint">Point your app's SMTP settings here. Every message is stored and shown in <a href="#/messages">Emails</a>; nothing is relayed to the real recipients.</p>
-                    <div class="endpoint">
-                        <span class="method method-post">SMTP</span>
-                        <code id="smtpAddress">localhost:1025</code>
-                        <button type="button" class="copy-button" data-copy="smtpAddress">Copy</button>
+                <section class="card quick-setup">
+                    <div class="quick-head">
+                        <h3>Quick setup</h3>
+                        <span class="muted">Copy these into your app's configuration.</span>
                     </div>
-                    <table class="ref-table">
-                        <tr><th>Login</th><td id="smtpAuthNote"></td></tr>
-                        <tr><th>Encryption</th><td id="smtpEncryptionNote"></td></tr>
-                        <tr><th>Recipients</th><td id="smtpRecipientsNote"></td></tr>
-                        <tr><th>Size</th><td>Messages over <code>MAX_EMAIL_SIZE_MB</code> (10 MB by default) are rejected with <code>552</code></td></tr>
-                    </table>
-
-                    <div class="code-header">
-                        <h4>Environment variables</h4>
-                        <button type="button" class="copy-button" data-copy="envExample">Copy</button>
+                    <div class="quick-grid">
+                        <div class="quick-col">
+                            <div class="quick-title">
+                                <h4>SMS gateway</h4>
+                                <button type="button" class="copy-button" data-copy="qsSmsAll">Copy all</button>
+                            </div>
+                            <dl class="quick-list">
+                                <div><dt>URL</dt><dd><code id="qsSmsUrl"></code><button type="button" class="copy-button" data-copy="qsSmsUrl">Copy</button></dd></div>
+                                <div><dt>Method</dt><dd><code id="qsSmsMethod">POST</code><button type="button" class="copy-button" data-copy="qsSmsMethod">Copy</button></dd></div>
+                                <div><dt>API key header</dt><dd><code id="qsSmsHeader">X-API-Key</code><button type="button" class="copy-button" data-copy="qsSmsHeader">Copy</button></dd></div>
+                                <div><dt>Content-Type</dt><dd><code id="qsSmsType">application/json</code><button type="button" class="copy-button" data-copy="qsSmsType">Copy</button></dd></div>
+                                <div><dt>Body</dt><dd><code id="qsSmsBody"></code><button type="button" class="copy-button" data-copy="qsSmsBody">Copy</button></dd></div>
+                            </dl>
+                            <p class="hint">Use a <b>Send</b> key from the <a href="#/keys">API keys</a> page as the value of the header.</p>
+                            <pre id="qsSmsAll" class="hidden"></pre>
+                        </div>
+                        <div class="quick-col">
+                            <div class="quick-title">
+                                <h4>Email (SMTP)</h4>
+                                <button type="button" class="copy-button" data-copy="qsMailAll">Copy all</button>
+                            </div>
+                            <dl class="quick-list">
+                                <div><dt>Host</dt><dd><code id="qsSmtpHost"></code><button type="button" class="copy-button" data-copy="qsSmtpHost">Copy</button></dd></div>
+                                <div><dt>Port</dt><dd><code id="qsSmtpPort"></code><button type="button" class="copy-button" data-copy="qsSmtpPort">Copy</button></dd></div>
+                                <div><dt>Encryption</dt><dd><code id="qsSmtpSecurity"></code></dd></div>
+                                <div id="qsSmtpUserRow"><dt>Username</dt><dd><code id="qsSmtpUser"></code><button type="button" class="copy-button" data-copy="qsSmtpUser">Copy</button></dd></div>
+                                <div id="qsSmtpPassRow"><dt>Password</dt><dd><code>SMTP_PASSWORD from the server's .env</code></dd></div>
+                            </dl>
+                            <p id="qsSmtpNote" class="hint"></p>
+                            <pre id="qsMailAll" class="hidden"></pre>
+                        </div>
                     </div>
-                    <pre class="code" id="envExample"></pre>
+                </section>
 
-                    <div class="code-header">
-                        <h4>Nodemailer</h4>
-                        <button type="button" class="copy-button" data-copy="nodemailerExample">Copy</button>
+                <div class="api-columns">
+                    <div class="api-col">
+                        <div class="api-col-title">SMS</div>
+                    <article class="card">
+                        <h3>Send an SMS</h3>
+                        <p class="hint">The SMS gateway: point your application's SMS integration at this endpoint instead of a real provider. Nothing is delivered to a phone.</p>
+                        <div class="endpoint">
+                            <span class="method method-post">POST</span>
+                            <code id="smsEndpoint">/api/sms</code>
+                            <button type="button" class="copy-button" data-copy="smsEndpoint">Copy</button>
+                        </div>
+
+                        <h4>Headers</h4>
+                        <table class="ref-table">
+                            <tr><th>Content-Type</th><td><code>application/json</code></td></tr>
+                            <tr><th>X-API-Key</th><td>A <b>Send</b> key from the <a href="#/keys">API keys</a> page</td></tr>
+                            <tr><th>Authorization</th><td>Or, for clients that can't set custom headers: <code>Bearer &lt;Send key&gt;</code></td></tr>
+                        </table>
+
+                        <h4>Body</h4>
+                        <table class="ref-table">
+                            <tr><th>sender</th><td>Optional, up to 64 characters</td></tr>
+                            <tr><th>phone</th><td>Required. 6&ndash;15 digits, optional leading <code>+</code>. Spaces, dashes, dots and brackets are removed.</td></tr>
+                            <tr><th>message</th><td>Required, up to 1600 characters</td></tr>
+                        </table>
+
+                        <div class="code-header">
+                            <h4>Example</h4>
+                            <button type="button" class="copy-button" data-copy="curlSmsSend">Copy</button>
+                        </div>
+                        <pre class="code" id="curlSmsSend"></pre>
+
+                        <h4>Responses</h4>
+                        <table class="ref-table">
+                            <tr><th><span class="status ok">201</span></th><td>Stored. Returns <code>{ success, id, timestamp }</code></td></tr>
+                            <tr><th><span class="status err">400</span></th><td>Invalid input; <code>details</code> lists the problem per field</td></tr>
+                            <tr><th><span class="status err">401</span></th><td>Missing or unknown API key</td></tr>
+                            <tr><th><span class="status err">429</span></th><td>Rate limit exceeded (<code>SMS_RATE_LIMIT</code>)</td></tr>
+                        </table>
+                    </article>
+
+                    <article class="card">
+                        <h3>Read SMS from scripts and tests</h3>
+                        <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> with a <b>Read</b> key (a Read key limited to some email inboxes can't read SMS) or <code>ADMIN_TOKEN</code>. Phone numbers are masked unless you add <code>unmask=true</code>.</p>
+                        <table class="ref-table endpoints">
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms/latest?phone=&hellip;</code><br>Newest matching message, or 404. Includes <code>code</code>: the detected OTP, or <code>null</code></td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms/wait?phone=&hellip;&amp;timeout=30</code><br>Waits for a matching message (one already stored is returned at once), or answers <code>408</code></td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms</code><br><code>search</code>, <code>phone</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100)</td></tr>
+                            <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/sms/:id</code>, <code>/api/sms</code> with <code>{ "ids": [1, 2] }</code>, or <code>/api/sms?phone=&hellip;</code> to empty one number. Admin only</td></tr>
+                        </table>
+
+                        <div class="code-header">
+                            <h4>Read the latest OTP</h4>
+                            <button type="button" class="copy-button" data-copy="curlSmsLatest">Copy</button>
+                        </div>
+                        <pre class="code" id="curlSmsLatest"></pre>
+
+                        <div class="code-header">
+                            <h4>In a JavaScript test</h4>
+                            <button type="button" class="copy-button" data-copy="jsSmsLatest">Copy</button>
+                        </div>
+                        <pre class="code" id="jsSmsLatest"></pre>
+                    </article>
                     </div>
-                    <pre class="code" id="nodemailerExample"></pre>
-                </article>
+                    <div class="api-col">
+                        <div class="api-col-title">Email</div>
+                    <article class="card">
+                        <h3>Send mail to this server</h3>
+                        <p class="hint">Point your app's SMTP settings here. Every message is stored and shown in <a href="#/messages">Emails</a>; nothing is relayed to the real recipients.</p>
+                        <div class="endpoint">
+                            <span class="method method-post">SMTP</span>
+                            <code id="smtpAddress">localhost:1025</code>
+                            <button type="button" class="copy-button" data-copy="smtpAddress">Copy</button>
+                        </div>
+                        <table class="ref-table">
+                            <tr><th>Login</th><td id="smtpAuthNote"></td></tr>
+                            <tr><th>Encryption</th><td id="smtpEncryptionNote"></td></tr>
+                            <tr><th>Recipients</th><td id="smtpRecipientsNote"></td></tr>
+                            <tr><th>Size</th><td>Messages over <code>MAX_EMAIL_SIZE_MB</code> (10 MB by default) are rejected with <code>552</code></td></tr>
+                        </table>
 
-                <article id="simulateCard" class="card">
-                    <h3>Simulate delivery failures</h3>
-                    <p class="hint">Send to one of these special recipients to see how your app handles a refusal. The part after <code>+</code> (or <code>.</code>, <code>_</code>, <code>-</code>) is ignored, so <code>reject+signup@example.com</code> works too. Turn this off with <code>SMTP_SIMULATE=false</code>.</p>
-                    <table class="ref-table">
-                        <tr><th><code>reject@</code></th><td><code>550</code> mailbox unavailable (permanent failure)</td></tr>
-                        <tr><th><code>tempfail@</code></th><td><code>451</code> temporary failure, try again later</td></tr>
-                        <tr><th><code>full@</code></th><td><code>452</code> mailbox full</td></tr>
-                        <tr><th><code>slow@</code></th><td>Accepted after 5 seconds. <code>slow10@</code> waits 10 seconds (at most 30)</td></tr>
-                        <tr><th><code>datafail@</code></th><td>The recipient is accepted, then the message is refused with <code>554</code> and not stored</td></tr>
-                    </table>
-                    <p class="hint">Other recipients on the same message are still accepted, as with a real server.</p>
-                </article>
+                        <div class="code-header">
+                            <h4>Environment variables</h4>
+                            <button type="button" class="copy-button" data-copy="envExample">Copy</button>
+                        </div>
+                        <pre class="code" id="envExample"></pre>
 
-                <article class="card">
-                    <h3>Read emails from scripts and tests</h3>
-                    <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> (or <code>X-API-Key</code>) with a <b>Read</b> key from the <a href="#/keys">API keys</a> page, or <code>ADMIN_TOKEN</code> (everything, including delete). Tests can use the <code>client/</code> helper (<code>waitForCode</code>, <code>waitForLink</code>); see the README.</p>
-                    <table class="ref-table endpoints">
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/latest?to=…</code><br>Newest matching email with its body, or 404. Includes <code>code</code> (the detected one-time code, or <code>null</code>) and <code>links</code> (every http(s) link)</td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/events</code><br>Server-Sent Events for both channels: an <code>email</code> event (the summary) per email and an <code>sms</code> event (phone masked, with its code) per SMS stored from now on. The dashboard uses it to update live</td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/export?ids=1,2,3</code><br>A zip of the original <code>.eml</code> files (up to 100 emails)</td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/metrics</code><br>Prometheus metrics (emails received, rejections, webhook and relay results, stored emails). Same access as reading emails</td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/wait?to=…&amp;timeout=30</code><br>Waits for a matching email (one that is already stored is returned at once), or answers <code>408</code>. Same body as <code>/latest</code>; <code>timeout</code> is 1&ndash;120 seconds</td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails</code><br>Summaries without bodies. Filters: <code>search</code>, <code>to</code> (exact address), <code>from</code>, <code>subject</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100)</td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id</code><br>One email: <code>text</code>, <code>html</code>, <code>headers</code>, <code>attachments</code> (each with a download <code>url</code>), <code>code</code>, <code>links</code> and deliverability <code>checks</code></td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id/thread</code><br>The emails in the same conversation (<code>Message-ID</code>, <code>In-Reply-To</code>, <code>References</code>), oldest first</td></tr>
-                        <tr><th><span class="method method-post">POST</span></th><td><code>/api/emails/:id/check-links</code><br>Admin. Requests each link in the email and reports its status</td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id/raw</code><br>The original message (add <code>?download=true</code> for an .eml file)</td></tr>
-                        <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/emails/:id</code></td></tr>
-                        <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/emails</code> with <code>{ "ids": [1, 2] }</code>, or <code>/api/emails?to=user@example.com</code> to empty one inbox</td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/health</code><br>Public; <code>{ "status": "ok" }</code> when the database is reachable</td></tr>
-                    </table>
+                        <div class="code-header">
+                            <h4>Nodemailer</h4>
+                            <button type="button" class="copy-button" data-copy="nodemailerExample">Copy</button>
+                        </div>
+                        <pre class="code" id="nodemailerExample"></pre>
+                    </article>
 
-                    <div class="code-header">
-                        <h4>Read the latest email for an address</h4>
-                        <button type="button" class="copy-button" data-copy="curlLatest">Copy</button>
+                    <article id="simulateCard" class="card">
+                        <h3>Simulate delivery failures</h3>
+                        <p class="hint">Send to one of these special recipients to see how your app handles a refusal. The part after <code>+</code> (or <code>.</code>, <code>_</code>, <code>-</code>) is ignored, so <code>reject+signup@example.com</code> works too. Turn this off with <code>SMTP_SIMULATE=false</code>.</p>
+                        <table class="ref-table">
+                            <tr><th><code>reject@</code></th><td><code>550</code> mailbox unavailable (permanent failure)</td></tr>
+                            <tr><th><code>tempfail@</code></th><td><code>451</code> temporary failure, try again later</td></tr>
+                            <tr><th><code>full@</code></th><td><code>452</code> mailbox full</td></tr>
+                            <tr><th><code>slow@</code></th><td>Accepted after 5 seconds. <code>slow10@</code> waits 10 seconds (at most 30)</td></tr>
+                            <tr><th><code>datafail@</code></th><td>The recipient is accepted, then the message is refused with <code>554</code> and not stored</td></tr>
+                        </table>
+                        <p class="hint">Other recipients on the same message are still accepted, as with a real server.</p>
+                    </article>
+
+                    <article class="card">
+                        <h3>Read emails from scripts and tests</h3>
+                        <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> (or <code>X-API-Key</code>) with a <b>Read</b> key from the <a href="#/keys">API keys</a> page, or <code>ADMIN_TOKEN</code> (everything, including delete). Tests can use the <code>client/</code> helper (<code>waitForCode</code>, <code>waitForLink</code>); see the README.</p>
+                        <table class="ref-table endpoints">
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/latest?to=…</code><br>Newest matching email with its body, or 404. Includes <code>code</code> (the detected one-time code, or <code>null</code>) and <code>links</code> (every http(s) link)</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/events</code><br>Server-Sent Events for both channels: an <code>email</code> event (the summary) per email and an <code>sms</code> event (phone masked, with its code) per SMS stored from now on. The dashboard uses it to update live</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/export?ids=1,2,3</code><br>A zip of the original <code>.eml</code> files (up to 100 emails)</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/metrics</code><br>Prometheus metrics (emails received, rejections, webhook and relay results, stored emails). Same access as reading emails</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/wait?to=…&amp;timeout=30</code><br>Waits for a matching email (one that is already stored is returned at once), or answers <code>408</code>. Same body as <code>/latest</code>; <code>timeout</code> is 1&ndash;120 seconds</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails</code><br>Summaries without bodies. Filters: <code>search</code>, <code>to</code> (exact address), <code>from</code>, <code>subject</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100)</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id</code><br>One email: <code>text</code>, <code>html</code>, <code>headers</code>, <code>attachments</code> (each with a download <code>url</code>), <code>code</code>, <code>links</code> and deliverability <code>checks</code></td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id/thread</code><br>The emails in the same conversation (<code>Message-ID</code>, <code>In-Reply-To</code>, <code>References</code>), oldest first</td></tr>
+                            <tr><th><span class="method method-post">POST</span></th><td><code>/api/emails/:id/check-links</code><br>Admin. Requests each link in the email and reports its status</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id/raw</code><br>The original message (add <code>?download=true</code> for an .eml file)</td></tr>
+                            <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/emails/:id</code></td></tr>
+                            <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/emails</code> with <code>{ "ids": [1, 2] }</code>, or <code>/api/emails?to=user@example.com</code> to empty one inbox</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/health</code><br>Public; <code>{ "status": "ok" }</code> when the database is reachable</td></tr>
+                        </table>
+
+                        <div class="code-header">
+                            <h4>Read the latest email for an address</h4>
+                            <button type="button" class="copy-button" data-copy="curlLatest">Copy</button>
+                        </div>
+                        <pre class="code" id="curlLatest"></pre>
+
+                        <div class="code-header">
+                            <h4>In a JavaScript test</h4>
+                            <button type="button" class="copy-button" data-copy="jsLatest">Copy</button>
+                        </div>
+                        <pre class="code" id="jsLatest"></pre>
+                    </article>
                     </div>
-                    <pre class="code" id="curlLatest"></pre>
-
-                    <div class="code-header">
-                        <h4>In a JavaScript test</h4>
-                        <button type="button" class="copy-button" data-copy="jsLatest">Copy</button>
-                    </div>
-                    <pre class="code" id="jsLatest"></pre>
-                </article>
-
-                <article class="card">
-                    <h3>Send an SMS</h3>
-                    <p class="hint">The SMS gateway: point your application's SMS integration at this endpoint instead of a real provider. Nothing is delivered to a phone.</p>
-                    <div class="endpoint">
-                        <span class="method method-post">POST</span>
-                        <code id="smsEndpoint">/api/sms</code>
-                        <button type="button" class="copy-button" data-copy="smsEndpoint">Copy</button>
-                    </div>
-
-                    <h4>Headers</h4>
-                    <table class="ref-table">
-                        <tr><th>Content-Type</th><td><code>application/json</code></td></tr>
-                        <tr><th>X-API-Key</th><td>A <b>Send</b> key from the <a href="#/keys">API keys</a> page</td></tr>
-                        <tr><th>Authorization</th><td>Or, for clients that can't set custom headers: <code>Bearer &lt;Send key&gt;</code></td></tr>
-                    </table>
-
-                    <h4>Body</h4>
-                    <table class="ref-table">
-                        <tr><th>sender</th><td>Optional, up to 64 characters</td></tr>
-                        <tr><th>phone</th><td>Required. 6&ndash;15 digits, optional leading <code>+</code>. Spaces, dashes, dots and brackets are removed.</td></tr>
-                        <tr><th>message</th><td>Required, up to 1600 characters</td></tr>
-                    </table>
-
-                    <div class="code-header">
-                        <h4>Example</h4>
-                        <button type="button" class="copy-button" data-copy="curlSmsSend">Copy</button>
-                    </div>
-                    <pre class="code" id="curlSmsSend"></pre>
-
-                    <h4>Responses</h4>
-                    <table class="ref-table">
-                        <tr><th><span class="status ok">201</span></th><td>Stored. Returns <code>{ success, id, timestamp }</code></td></tr>
-                        <tr><th><span class="status err">400</span></th><td>Invalid input; <code>details</code> lists the problem per field</td></tr>
-                        <tr><th><span class="status err">401</span></th><td>Missing or unknown API key</td></tr>
-                        <tr><th><span class="status err">429</span></th><td>Rate limit exceeded (<code>SMS_RATE_LIMIT</code>)</td></tr>
-                    </table>
-                </article>
-
-                <article class="card">
-                    <h3>Read SMS from scripts and tests</h3>
-                    <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> with a <b>Read</b> key (a Read key limited to some email inboxes can't read SMS) or <code>ADMIN_TOKEN</code>. Phone numbers are masked unless you add <code>unmask=true</code>.</p>
-                    <table class="ref-table endpoints">
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms/latest?phone=&hellip;</code><br>Newest matching message, or 404. Includes <code>code</code>: the detected OTP, or <code>null</code></td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms/wait?phone=&hellip;&amp;timeout=30</code><br>Waits for a matching message (one already stored is returned at once), or answers <code>408</code></td></tr>
-                        <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms</code><br><code>search</code>, <code>phone</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100)</td></tr>
-                        <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/sms/:id</code>, <code>/api/sms</code> with <code>{ "ids": [1, 2] }</code>, or <code>/api/sms?phone=&hellip;</code> to empty one number. Admin only</td></tr>
-                    </table>
-
-                    <div class="code-header">
-                        <h4>Read the latest OTP</h4>
-                        <button type="button" class="copy-button" data-copy="curlSmsLatest">Copy</button>
-                    </div>
-                    <pre class="code" id="curlSmsLatest"></pre>
-
-                    <div class="code-header">
-                        <h4>In a JavaScript test</h4>
-                        <button type="button" class="copy-button" data-copy="jsSmsLatest">Copy</button>
-                    </div>
-                    <pre class="code" id="jsSmsLatest"></pre>
-                </article>
+                </div>
             </div>
         </section>
     </main>

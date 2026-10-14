@@ -3,6 +3,7 @@ const { generateApiKey, hashApiKey, keyPrefix, createKeyCipher } = require('../u
 const { parseRules, describeRule } = require('../utils/recipients');
 
 const LAST_USED_INTERVAL_MS = 60 * 1000; // write last_used_at at most once a minute per key
+const NAME_MAX_LENGTH = 64; // the api_keys.name and sms_messages.api_key_name columns
 
 // The rules stored for a key, as text ("a@x.com,example.com"), in the form they were written
 const rulesText = row => (row.allowed_recipients || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -49,14 +50,44 @@ class ApiKeyModel {
         return rows.map(row => toKey(row, counts));
     }
 
-    async nameExists(name) {
-        const rows = await this.db.all('SELECT id FROM api_keys WHERE LOWER(name) = LOWER(?)', [name]);
+    // Only active keys hold a name: a revoked key's name can be used again. exceptId skips the key being renamed.
+    async nameExists(name, exceptId = 0) {
+        const rows = await this.db.all('SELECT id FROM api_keys WHERE LOWER(name) = LOWER(?) AND revoked_at IS NULL AND id <> ?', [name, exceptId]);
         return rows.length > 0;
+    }
+
+    // The name column is UNIQUE, so before a name is reused the revoked key that still holds it is renamed to
+    // "name (revoked #id)". Its SMS messages follow, so they stay with the revoked key instead of being
+    // counted under the new one.
+    async releaseRevokedName(name) {
+        const rows = await this.db.all('SELECT id, name FROM api_keys WHERE LOWER(name) = LOWER(?) AND revoked_at IS NOT NULL', [name]);
+        for (const row of rows) {
+            const suffix = ` (revoked #${row.id})`;
+            const renamed = row.name.slice(0, NAME_MAX_LENGTH - suffix.length) + suffix;
+            await this.db.run('UPDATE api_keys SET name = ? WHERE id = ?', [renamed, row.id]);
+            await this.db.run('UPDATE sms_messages SET api_key_name = ? WHERE api_key_name = ?', [renamed, row.name]);
+        }
+    }
+
+    // Renames an active key; its SMS messages follow so the "sent" count stays with it.
+    // Returns the key, or undefined if there's no such key, or { revoked: true } if it was revoked.
+    async rename(id, name) {
+        const [row] = await this.db.all('SELECT * FROM api_keys WHERE id = ?', [id]);
+        if (!row) return undefined;
+        if (row.revoked_at) return { revoked: true };
+        if (row.name !== name) {
+            await this.releaseRevokedName(name);
+            await this.db.run('UPDATE api_keys SET name = ? WHERE id = ?', [name, id]);
+            await this.db.run('UPDATE sms_messages SET api_key_name = ? WHERE api_key_name = ?', [name, row.name]);
+        }
+        const [updated] = await this.db.all('SELECT * FROM api_keys WHERE id = ?', [id]);
+        return { key: toKey(updated, await this.messageCounts()), previousName: row.name };
     }
 
     // Returns the new key's metadata and the full key
     // allowedRecipients: addresses / domains (see utils/recipients.js) the key is limited to; [] means no limit
     async create({ name, scope, secret = generateApiKey(scope), source = 'dashboard', allowedRecipients = [] }) {
+        await this.releaseRevokedName(name);
         const createdAt = new Date();
         const rules = parseRules(allowedRecipients.join(',')).map(describeRule);
         const id = await this.db.insert(
@@ -81,6 +112,16 @@ class ApiKeyModel {
         const [row] = await this.db.all('SELECT * FROM api_keys WHERE id = ?', [id]);
         if (!row) return undefined;
         return { key: toKey(row), changed: changed > 0 };
+    }
+
+    // Permanently removes a revoked key. Returns undefined if there's no such key, { deleted: false } if it is
+    // still active (revoke it first). Its SMS messages stay; only their key label is left behind.
+    async remove(id) {
+        const [row] = await this.db.all('SELECT * FROM api_keys WHERE id = ?', [id]);
+        if (!row) return undefined;
+        if (!row.revoked_at) return { key: toKey(row), deleted: false };
+        await this.db.run('DELETE FROM api_keys WHERE id = ? AND revoked_at IS NOT NULL', [id]);
+        return { key: toKey(row), deleted: true };
     }
 
     // Looks up an active key by its value; returns { id, name, scope, allowedRecipients: [rule] } or null

@@ -116,6 +116,74 @@ describe('keys', () => {
         assert.ok(keys.find(k => k.name === 'ci').messageCount >= 1);
         assert.equal(keys.find(k => k.name === 'reader').messageCount, 0);
     });
+
+    test('a revoked key\'s name can be used again, and its SMS stay with the revoked key', async () => {
+        const first = await createKey({ name: 'reuse-me', scope: 'send' });
+        const sendWith = secret => request(app).post('/api/sms').set('X-API-Key', secret).send({ phone: '15552220000', message: 'hello' });
+        assert.equal((await sendWith(first.secret)).status, 201);
+
+        // an active key keeps its name
+        const duplicate = await admin(request(app).post('/api/keys')).send({ name: 'REUSE-me', scope: 'send' });
+        assert.equal(duplicate.status, 400);
+        assert.match(duplicate.body.details.name, /already used/);
+
+        assert.equal((await admin(request(app).delete(`/api/keys/${first.key.id}`))).status, 200);
+        const second = await createKey({ name: 'reuse-me', scope: 'send' });
+        assert.equal(second.key.name, 'reuse-me');
+        assert.equal((await sendWith(first.secret)).status, 401);
+        assert.equal((await sendWith(second.secret)).status, 201);
+
+        const keys = (await admin(request(app).get('/api/keys'))).body.keys;
+        const old = keys.find(k => k.id === first.key.id);
+        assert.equal(old.name, `reuse-me (revoked #${first.key.id})`);
+        assert.ok(old.revokedAt);
+        assert.equal(old.messageCount, 1);
+        assert.equal(keys.find(k => k.id === second.key.id).messageCount, 1);
+
+        // and again: each revoked key keeps its own name
+        await admin(request(app).delete(`/api/keys/${second.key.id}`));
+        assert.equal((await createKey({ name: 'reuse-me', scope: 'read' })).key.name, 'reuse-me');
+    });
+
+    test('an active key can be renamed; its SMS count follows and its secret keeps working', async () => {
+        const key = await createKey({ name: 'before-rename', scope: 'send' });
+        const other = await createKey({ name: 'rename-taken', scope: 'send' });
+        const rename = (id, name) => admin(request(app).patch(`/api/keys/${id}`)).send({ name });
+        const sendWith = secret => request(app).post('/api/sms').set('X-API-Key', secret).send({ phone: '15553330000', message: 'hi' });
+        assert.equal((await sendWith(key.secret)).status, 201);
+
+        const renamed = await rename(key.key.id, '  after-rename  ');
+        assert.equal(renamed.status, 200);
+        assert.equal(renamed.body.key.name, 'after-rename');
+        assert.equal(renamed.body.key.messageCount, 1);
+        assert.equal((await sendWith(key.secret)).status, 201);
+        const keys = (await admin(request(app).get('/api/keys'))).body.keys;
+        assert.equal(keys.find(k => k.id === key.key.id).messageCount, 2);
+        assert.ok(!keys.some(k => k.name === 'before-rename'));
+
+        assert.equal((await rename(key.key.id, 'AFTER-rename')).status, 200);       // only the case changes
+        assert.equal((await rename(key.key.id, 'RENAME-taken')).status, 400);       // another active key's name
+        assert.equal((await rename(key.key.id, 'dashboard')).status, 400);
+        assert.equal((await rename(key.key.id, '')).status, 400);
+        assert.equal((await rename(999999, 'nobody')).status, 404);
+
+        await admin(request(app).delete(`/api/keys/${other.key.id}`));
+        assert.equal((await rename(other.key.id, 'revoked-rename')).status, 409);   // revoked keys keep their name
+        assert.equal((await rename(key.key.id, 'rename-taken')).status, 200);       // a revoked key's name is free
+    });
+
+    test('only a revoked key can be deleted for good', async () => {
+        const key = await createKey({ name: 'to-delete', scope: 'read' });
+        const remove = id => admin(request(app).delete(`/api/keys/${id}?permanent=true`));
+        assert.equal((await remove(key.key.id)).status, 409);                       // still active
+        assert.ok((await admin(request(app).get('/api/keys'))).body.keys.some(k => k.id === key.key.id));
+        await admin(request(app).delete(`/api/keys/${key.key.id}`));                // revoke
+        assert.equal((await remove(key.key.id)).status, 200);
+        assert.ok(!(await admin(request(app).get('/api/keys'))).body.keys.some(k => k.id === key.key.id));
+        assert.equal((await remove(key.key.id)).status, 404);
+        assert.equal((await remove(999999)).status, 404);
+        assert.equal((await createKey({ name: 'to-delete', scope: 'read' })).key.name, 'to-delete');
+    });
 });
 
 describe('sending SMS', () => {
