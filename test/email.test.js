@@ -105,7 +105,7 @@ describe('config', () => {
 
     test('defaults', () => {
         const config = loadConfig(env);
-        assert.equal(config.port, 30004);
+        assert.equal(config.port, 30005);
         assert.equal(config.smtpPort, 1025);
         assert.equal(config.maxEmailBytes, 1048576);
     });
