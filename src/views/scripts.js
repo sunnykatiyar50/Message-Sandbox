@@ -1257,6 +1257,88 @@ function svgIcon(innerMarkup) {
     return svg;
 }
 
+const ICONS = {
+    eye: '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeOff: '<path d="M17.9 17.9A10.9 10.9 0 0 1 12 19C5 19 1 12 1 12a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 4.2A10.7 10.7 0 0 1 12 5c7 0 11 7 11 7a18.6 18.6 0 0 1-2.2 3.2"/><line x1="1" y1="1" x2="23" y2="23"/>',
+    copy: '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    check: '<polyline points="20 6 9 17 4 12"/>',
+    cross: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
+    pencil: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+};
+
+// An icon-only button whose label shows as a tooltip on hover or keyboard focus
+function iconButton(icon, label, onClick, extraClass = '') {
+    const button = el('button', `icon-action ${extraClass}`.trim());
+    button.type = 'button';
+    button.dataset.tooltip = label;
+    button.setAttribute('aria-label', label);
+    button.appendChild(svgIcon(ICONS[icon]));
+    button.addEventListener('click', onClick);
+    return button;
+}
+
+// Copies text from getText() and shows a check (or a cross) on the button for a moment
+async function copyWithIcon(button, getText) {
+    let text;
+    try {
+        text = await getText();
+    } catch (error) {
+        return alert(error.message);
+    }
+    const icon = button.firstChild;
+    const label = button.dataset.tooltip;
+    let copied = true;
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch {
+        copied = false;
+    }
+    button.replaceChildren(svgIcon(copied ? ICONS.check : ICONS.cross));
+    button.dataset.tooltip = copied ? 'Copied' : 'Copy failed';
+    setTimeout(() => {
+        button.replaceChildren(icon);
+        button.dataset.tooltip = label;
+    }, 1500);
+}
+
+// Swaps a key's name for an input; Enter or the check saves, Escape or the cross cancels
+function startRename(nameCell, id, currentName) {
+    const input = el('input', 'key-name-input');
+    input.type = 'text';
+    input.value = currentName;
+    input.maxLength = 64;
+    input.autocomplete = 'off';
+    input.setAttribute('aria-label', 'Key name');
+    const error = el('small', 'field-error');
+
+    const save = async () => {
+        const name = input.value.trim();
+        if (name === currentName) return renderKeys();
+        const { response, data } = await apiJson(`/api/keys/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) });
+        if (response.ok) return loadKeys();
+        error.textContent = data.details && data.details.name ? `Name ${data.details.name}` : data.error || 'Could not rename the key.';
+        input.classList.add('invalid');
+    };
+    input.addEventListener('input', () => {
+        error.textContent = '';
+        input.classList.remove('invalid');
+    });
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            save();
+        } else if (event.key === 'Escape') {
+            renderKeys();
+        }
+    });
+
+    const row = el('div', 'key-name-edit');
+    row.append(input, iconButton('check', 'Save name', save), iconButton('cross', 'Cancel', renderKeys));
+    nameCell.replaceChildren(row, error);
+    input.focus();
+    input.select();
+}
+
 function keyRow({ id, name, scope, prefix, allowedRecipients = [], messageCount = 0, lastUsedAt, createdAt, revokedAt }) {
     const rowId = id;
     const revealUrl = `/api/keys/${id}/reveal`;
@@ -1288,9 +1370,7 @@ function keyRow({ id, name, scope, prefix, allowedRecipients = [], messageCount 
     keyCell.appendChild(el('code', null, shown || `${prefix}…`));
     if (!revokedAt) {
         const actions = el('span', 'key-actions');
-        const toggle = el('button', 'ghost small', shown ? 'Hide' : 'Show');
-        toggle.type = 'button';
-        toggle.addEventListener('click', async () => {
+        const toggle = iconButton(shown ? 'eyeOff' : 'eye', shown ? 'Hide key' : 'Show key', async () => {
             if (revealedKeys.has(rowId)) {
                 revealedKeys.delete(rowId);
                 return renderKeys();
@@ -1302,15 +1382,7 @@ function keyRow({ id, name, scope, prefix, allowedRecipients = [], messageCount 
                 alert(error.message);
             }
         });
-        const copy = el('button', 'ghost small', 'Copy');
-        copy.type = 'button';
-        copy.addEventListener('click', async () => {
-            try {
-                copyText(await revealKey(rowId, revealUrl), copy);
-            } catch (error) {
-                alert(error.message);
-            }
-        });
+        const copy = iconButton('copy', 'Copy key', () => copyWithIcon(copy, () => revealKey(rowId, revealUrl)));
         actions.append(toggle, copy);
         keyCell.appendChild(actions);
     }
@@ -1326,7 +1398,15 @@ function keyRow({ id, name, scope, prefix, allowedRecipients = [], messageCount 
         revoked.tabIndex = 0;
         revoked.dataset.tooltip = `Revoked ${new Date(revokedAt).toLocaleString()}`;
         actionCell.appendChild(revoked);
+        const remove = el('button', 'icon-action danger-icon');
+        remove.type = 'button';
+        remove.dataset.tooltip = 'Delete key';
+        remove.setAttribute('aria-label', `Delete revoked key "${name}"`);
+        remove.appendChild(svgIcon('<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6V4h6v2"/>'));
+        remove.addEventListener('click', () => deleteKey(id, name));
+        actionCell.appendChild(remove);
     } else {
+        actionCell.appendChild(iconButton('pencil', 'Rename key', () => startRename(nameCell, id, name)));
         // Icon button; "Revoke key" appears as a tooltip on hover or keyboard focus
         const revoke = el('button', 'icon-action danger-icon');
         revoke.type = 'button';
@@ -1411,6 +1491,13 @@ async function revokeKey(id, name) {
     await loadKeys();
 }
 
+async function deleteKey(id, name) {
+    if (!confirm(`Delete "${name}"?\n\nIt is already revoked; this removes it from the list for good. Its SMS messages are kept.`)) return;
+    const { response, data } = await apiJson(`/api/keys/${id}?permanent=true`, { method: 'DELETE' });
+    if (!response.ok) alert(data.error || 'Could not delete the key.');
+    await loadKeys();
+}
+
 // --- API reference ---
 
 function renderApiReference() {
@@ -1428,6 +1515,7 @@ function renderApiReference() {
         ? `Only mail for ${smtpInfo.smtpAllowedDomains.join(', ')}; any other recipient is refused with 550 (SMTP_ALLOWED_DOMAINS). Bcc recipients are recorded too (see "Also to")`
         : 'Any address is accepted, including ones that don\'t exist. Bcc recipients are recorded too (see "Also to")';
     $('simulateCard').classList.toggle('hidden', !smtpInfo.smtpSimulate);
+    renderQuickSetup(base, host, port);
     $('nodemailerExample').textContent = [
         "const nodemailer = require('nodemailer');",
         '',
@@ -1455,6 +1543,41 @@ function renderApiReference() {
         '});',
         'const { subject, code, links, text, html } = await res.json();',
         '// code: the detected one-time code, or null; links: every http(s) link in the email',
+    ].join('\n');
+}
+
+// The "Quick setup" card: the values to paste into an app's SMS and SMTP configuration
+function renderQuickSetup(base, host, port) {
+    const smsBody = JSON.stringify({ sender: 'MyApp', phone: '+15551234567', message: 'Your OTP is 123456' });
+    $('qsSmsUrl').textContent = `${base}/api/sms`;
+    $('qsSmsBody').textContent = smsBody;
+    $('qsSmsAll').textContent = [
+        `URL: ${base}/api/sms`,
+        'Method: POST',
+        'Header: X-API-Key: <a Send key from the API keys page>',
+        'Header: Content-Type: application/json',
+        `Body: ${smsBody}`,
+    ].join('\n');
+
+    const security = smtpInfo.smtpStartTls
+        ? `STARTTLS${smtpInfo.smtpTlsPort ? ` (or TLS on port ${smtpInfo.smtpTlsPort})` : ''}`
+        : 'None (plain SMTP)';
+    const username = smtpInfo.smtpUsername || '';
+    $('qsSmtpHost').textContent = host;
+    $('qsSmtpPort').textContent = String(port);
+    $('qsSmtpSecurity').textContent = security;
+    $('qsSmtpUserRow').classList.toggle('hidden', !smtpInfo.smtpAuthRequired || !username);
+    $('qsSmtpPassRow').classList.toggle('hidden', !smtpInfo.smtpAuthRequired);
+    $('qsSmtpUser').textContent = username;
+    $('qsSmtpNote').textContent = smtpInfo.smtpAuthRequired
+        ? ''
+        : 'No login needed: any username and password (or none) is accepted.';
+    $('qsSmtpNote').classList.toggle('hidden', smtpInfo.smtpAuthRequired);
+    $('qsMailAll').textContent = [
+        `Host: ${host}`,
+        `Port: ${port}`,
+        `Encryption: ${security}`,
+        ...(smtpInfo.smtpAuthRequired ? [`Username: ${username || '<SMTP_USERNAME>'}`, 'Password: <SMTP_PASSWORD from the server .env>'] : ['Login: none needed']),
     ].join('\n');
 }
 
