@@ -147,6 +147,23 @@ describe('certificate manager', () => {
     });
 });
 
+describe('waitForTxt', () => {
+    const { waitForTxt } = require('../src/certs/dnsWait');
+
+    test('waits until every authoritative server returns the value', async () => {
+        const seen = { a: 0, b: 0 };
+        const lookup = async (name, server) => (++seen[server] >= (server === 'a' ? 1 : 3) ? ['the-value'] : []);
+        assert.equal(await waitForTxt('_acme-challenge.x.example.com', 'the-value', { getServers: async () => ['a', 'b'], lookup, intervalMs: 1 }), true);
+        assert.equal(seen.b, 3);
+    });
+
+    test('gives up after the timeout, or when no servers are found', async () => {
+        const never = async () => [];
+        assert.equal(await waitForTxt('n', 'v', { getServers: async () => ['a'], lookup: never, timeoutMs: 20, intervalMs: 5 }), false);
+        assert.equal(await waitForTxt('n', 'v', { getServers: async () => [], lookup: never }), false);
+    });
+});
+
 describe('Cloudflare DNS client', () => {
     test('finds the parent zone and adds and removes the TXT record', async () => {
         const requests = [];
