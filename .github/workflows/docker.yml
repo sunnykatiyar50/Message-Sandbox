@@ -1,9 +1,12 @@
 # Tests the app, then builds the Docker image and publishes it to GitHub Container Registry.
 #
 #   push to main          -> ghcr.io/<owner>/message-sandbox:latest and :sha-<short>
-#   push a tag v2.1.0     -> :2.1.0, :2.1, :2 and :sha-<short>
-#   pull request to main  -> tests and builds the image, but does not publish it
+#   push a tag v2.1.0     -> :2.1.0, :2.1, :2, :latest (stable tags only) and :sha-<short>
+#   pull request to main  -> tests, and a quick amd64-only build; nothing is published
 #   Actions tab "Run workflow" -> same as a push to the selected branch
+#
+# A release pushes its "Release vX.Y.Z" commit and the tag together. Only the tag run executes then,
+# so a release costs one run instead of two.
 name: Docker image
 
 on:
@@ -29,6 +32,8 @@ env:
 jobs:
   test:
     name: Test (Node ${{ matrix.node }})
+    # Skip the main-branch run of a release commit: the tag run of the same commit does the work
+    if: github.event_name != 'push' || github.ref_type == 'tag' || !startsWith(github.event.head_commit.message, 'Release v')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -54,8 +59,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # QEMU lets the amd64 runner build the arm64 image too (Raspberry Pi, Oracle Ampere, Apple silicon)
+      # QEMU lets the amd64 runner build the arm64 image too (Raspberry Pi, Oracle Ampere, Apple silicon).
+      # Pull requests only check that the image builds, so they skip arm64 and the slow emulation.
       - uses: docker/setup-qemu-action@v4
+        if: github.event_name != 'pull_request'
       - uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
@@ -72,7 +79,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || (github.ref_type == 'tag' && !contains(github.ref_name, '-')) }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}},enable=${{ !startsWith(github.ref, 'refs/tags/v0.') }}
@@ -85,7 +92,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
