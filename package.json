@@ -1,6 +1,6 @@
 {
   "name": "message-sandbox",
-  "version": "2.1.3",
+  "version": "2.2.0",
   "description": "Mock SMS gateway and mail server for testing: captures outgoing SMS and email and shows them in one web dashboard.",
   "main": "src/app.js",
   "scripts": {
