@@ -17,6 +17,8 @@ const { Metrics } = require('../utils/metrics');
 const SIMULATIONS = /^(reject|tempfail|full|slow|datafail)(\d*)(?:[+._-].*)?$/;
 const DEFAULT_SLOW_SECONDS = 5;
 const MAX_SLOW_SECONDS = 30;
+// A connection that sends nothing for this long before closing is a client waiting for a greeting, not a port scan
+const IDLE_CLIENT_MS = 2000;
 
 function failure(code, message) {
     const error = new Error(message);
@@ -151,15 +153,21 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
         const detail = config.smtpDebug ? ` [${[error.code, error.meta && error.meta.tlsProtocol].filter(Boolean).join(', ')}]` : '';
         logToFile(`SMTP server error on the ${listener}: ${error.message}${detail}`);
     });
-    if (config.smtpDebug) {
-        // At the TCP level, so a connection that fails its TLS handshake is still seen, with the client's address
-        server.server.on('connection', socket => {
-            const from = socket.remoteAddress;
-            const started = Date.now();
-            logToFile(`SMTP connection from ${from} on the ${listener}`);
-            socket.once('close', () => logToFile(`SMTP connection from ${from} on the ${listener} closed after ${Date.now() - started} ms`));
+    // At the TCP level, so a connection that fails its TLS handshake is still seen, with the client's address
+    server.server.on('connection', socket => {
+        const from = socket.remoteAddress;
+        const started = Date.now();
+        if (config.smtpDebug) logToFile(`SMTP connection from ${from} on the ${listener}`);
+        socket.once('close', () => {
+            const ms = Date.now() - started;
+            if (config.smtpDebug) logToFile(`SMTP connection from ${from} on the ${listener} closed after ${ms} ms`);
+            // The TLS port speaks only after the client's handshake. A client that waited for a plain SMTP greeting
+            // (configured for no encryption or STARTTLS on this port) sends nothing and gives up after its timeout.
+            if (secure && socket.bytesRead === 0 && ms >= IDLE_CLIENT_MS) {
+                logToFile(`${from} connected to the TLS port, sent nothing for ${Math.round(ms / 1000)}s and gave up: it is probably set to plain SMTP or STARTTLS here. The TLS port needs SSL/TLS from the first byte (SMTPS); for STARTTLS or no encryption use the SMTP port`);
+            }
         });
-    }
+    });
     return server;
 }
 
