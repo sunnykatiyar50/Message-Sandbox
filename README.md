@@ -296,6 +296,8 @@ When TLS is on, the startup log shows what clients will be offered: `SMTP TLS ce
 
 A client that drops the connection mid-handshake logs `TLS handshake did not complete on the TLS port` (or `SMTP port`). It usually means the client doesn't trust the certificate or uses a name that isn't on it. To see every connection, set `SMTP_DEBUG=true` and restart: each one is logged with its source address, and each successful handshake with the TLS version, cipher and the server name the client asked for. Compare a good and a bad client. Message content is never logged. Turn it off again when done.
 
+A client that connects to the TLS port, sends nothing and gives up after a few seconds is logged with a hint. It is almost always set to plain SMTP or STARTTLS on that port, so it waits for a greeting that the TLS port never sends first. On `SMTP_TLS_PORT` use SSL/TLS (SMTPS); for STARTTLS or no encryption use `SMTP_PORT`.
+
 To see what a client sees, from any machine (the first command is the TLS port, the second is STARTTLS):
 
 ```
