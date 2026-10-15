@@ -14,11 +14,18 @@ services:
     init: true
     user: 1000:1000
     env_file: .env
+    # Ports are "<host port>:<container port>".
+    #   Left side (host): yours to choose, nothing in .env reads it.
+    #   Right side (container): the port the app listens on. It must equal the variable in .env
+    #   (PORT, SMTP_PORT, SMTP_TLS_PORT); the defaults are 30005, 1025 and none for TLS.
     ports:
-      - "${PORT:-30005}:${PORT:-30005}"
-      - "${SMTP_PORT:-1025}:${SMTP_PORT:-1025}"
-      # when SMTP_TLS_PORT is set:
-      # - "${SMTP_TLS_PORT:-1465}:${SMTP_TLS_PORT:-1465}"
+      - "30005:30005"   # dashboard and API: container side = PORT
+      - "1025:1025"     # SMTP:              container side = SMTP_PORT
+      # - "1465:1465"   # SMTP over TLS:     container side = SMTP_TLS_PORT (only when it is set)
+    # Where the app keeps things inside the container (working directory: /app):
+    #   /app/data         SQLite database (SQLITE_PATH) and Let's Encrypt certificates (ACME_DIR=/app/data/certs)
+    #   /app/logs         log files (LOG_DIR)
+    #   /certs            your own certificate and key, when not using ACME (SMTP_TLS_KEY / SMTP_TLS_CERT)
     volumes:
       - message-sandbox-data:/app/data
       - message-sandbox-logs:/app/logs
