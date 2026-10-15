@@ -11,19 +11,21 @@ const CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
 // Let's Encrypt limits failed validations (5 per hour per hostname), so a crash loop must not retry at once
 const RETRY_AFTER_FAILURE_MS = 15 * 60 * 1000;
 
-// { serial, expires, names } for a PEM file, or null when it is missing or unreadable
+// { serial, expires, names, staging } for a PEM file, or null when it is missing or unreadable
 function readCertInfo(file) {
     try {
         const cert = new X509Certificate(fs.readFileSync(file));
         const names = (cert.subjectAltName || '').split(',').map(s => s.trim()).filter(s => s.startsWith('DNS:')).map(s => s.slice(4).toLowerCase());
-        return { serial: cert.serialNumber, expires: new Date(cert.validTo), names };
+        // Let's Encrypt staging intermediates are named "(STAGING) ...", so the issuer tells which server issued it
+        return { serial: cert.serialNumber, expires: new Date(cert.validTo), names, staging: /\(STAGING\)/i.test(cert.issuer || '') };
     } catch {
         return null;
     }
 }
 
-function renewalReason(info, domains, renewDays, now = Date.now()) {
+function renewalReason(info, domains, renewDays, now = Date.now(), staging = false) {
     if (!info) return 'no certificate yet';
+    if (info.staging !== staging) return staging ? 'it was issued by the production server and ACME_STAGING is now on' : 'it was issued by the staging server and ACME_STAGING is now off';
     if (domains.some(domain => !info.names.includes(domain))) return 'the domain list changed';
     if (info.expires.getTime() - now < renewDays * DAY_MS) return `it expires ${info.expires.toISOString().slice(0, 10)}`;
     return null;
@@ -53,7 +55,7 @@ function createCertManager(config, { issue = issueCertificate, log = () => {} } 
     // Issues or renews when due (or when forced). Throws if that is needed and fails.
     async function ensure({ force = false, now = Date.now() } = {}) {
         const info = readCertInfo(certFile);
-        const reason = force ? 'forced' : renewalReason(info, config.acmeDomains, config.acmeRenewDays, now);
+        const reason = force ? 'forced' : renewalReason(info, config.acmeDomains, config.acmeRenewDays, now, config.acmeStaging);
         if (!reason) return { renewed: false, info };
 
         const failure = !force && recentFailure(now);
