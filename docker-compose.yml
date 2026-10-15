@@ -6,26 +6,24 @@
 #   IMAGE_TAG=1.2.0 docker compose up -d             # pin a released version (see the Releases page)
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build   # build from source
 #
-# Settings come from .env. Databases (SQLite, external or bundled PostgreSQL/MySQL), bind mounts and TLS
-# certificates: see README.md, "Running with Docker" and "Database setup".
+# Settings come from .env. Databases, bind mounts and TLS: see README.md, "Running with Docker" and
+# "Database setup".
 services:
   message-sandbox:
     image: ghcr.io/sunnykatiyar50/message-sandbox:${IMAGE_TAG:-latest}
     init: true
     user: 1000:1000
     env_file: .env
-    # Ports are "<host port>:<container port>".
-    #   Left side (host): yours to choose, nothing in .env reads it.
-    #   Right side (container): the port the app listens on. It must equal the variable in .env
-    #   (PORT, SMTP_PORT, SMTP_TLS_PORT); the defaults are 30005, 1025 and none for TLS.
+    # "<host port>:<container port>". Choose any host port (left); keep the container port (right)
+    # equal to the variable in .env, e.g. "2525:1025" publishes SMTP on host port 2525.
     ports:
-      - "30005:30005"   # dashboard and API: container side = PORT
-      - "1025:1025"     # SMTP:              container side = SMTP_PORT
-      # - "1465:1465"   # SMTP over TLS:     container side = SMTP_TLS_PORT (only when it is set)
-    # Where the app keeps things inside the container (working directory: /app):
-    #   /app/data         SQLite database (SQLITE_PATH) and Let's Encrypt certificates (ACME_DIR=/app/data/certs)
-    #   /app/logs         log files (LOG_DIR)
-    #   /certs            your own certificate and key, when not using ACME (SMTP_TLS_KEY / SMTP_TLS_CERT)
+      - "30005:30005"   # dashboard and API (PORT)
+      - "1025:1025"     # SMTP (SMTP_PORT)
+      # - "1465:1465"   # SMTP over TLS (SMTP_TLS_PORT, when set)
+    # Container paths (working directory /app):
+    #   /app/data   SQLite database (SQLITE_PATH) and Let's Encrypt certificates (ACME_DIR=/app/data/certs)
+    #   /app/logs   log files (LOG_DIR)
+    #   /certs      your own certificate and key instead of ACME (SMTP_TLS_KEY, SMTP_TLS_CERT)
     volumes:
       - message-sandbox-data:/app/data
       - message-sandbox-logs:/app/logs
