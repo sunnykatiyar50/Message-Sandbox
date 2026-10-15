@@ -12,7 +12,7 @@ const { createEvents } = require('./mail/events');
 const { createWebhook } = require('./mail/webhook');
 const { createRelay } = require('./mail/relay');
 const { createSmtpServer, listen: listenSmtp } = require('./mail/smtpServer');
-const { createCertManager } = require('./certs/certManager');
+const { createCertManager, readCertInfo } = require('./certs/certManager');
 const { setupTls } = require('./certs/tlsSetup');
 const { logToFile } = require('./utils/logger');
 const { Metrics } = require('./utils/metrics');
@@ -61,6 +61,11 @@ async function main() {
     const certManager = config.acmeDomains.length ? createCertManager(config, { log: logToFile }) : null;
     const tlsReady = await setupTls(config, { certManager, log: logToFile });
     if (tlsReady && certManager) certManager.markLoaded();
+    if (tlsReady) {
+        // What clients will be shown, so a name or issuer mismatch is visible without a debugger
+        const cert = readCertInfo(config.smtpTlsCert);
+        if (cert) logToFile(`SMTP TLS certificate: ${cert.names.join(', ') || 'no DNS names'}; issued by ${cert.issuer}${cert.staging ? ' (Let\'s Encrypt staging, not trusted by clients)' : ''}; valid until ${cert.expires.toISOString().slice(0, 10)}`);
+    }
 
     const events = createEvents();
     const metrics = new Metrics();

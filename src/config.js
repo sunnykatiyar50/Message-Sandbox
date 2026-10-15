@@ -75,6 +75,8 @@ function loadConfig(env = process.env) {
         maxEmailBytes: toInt(env.MAX_EMAIL_SIZE_MB, 10) * 1024 * 1024,
         // Failures on purpose for special recipients (reject@, tempfail@, full@, slow@, datafail@)
         smtpSimulate: env.SMTP_SIMULATE !== 'false',
+        // Logs each SMTP connection and its TLS details (never message content), to debug clients that can't connect
+        smtpDebug: env.SMTP_DEBUG === 'true',
         smtpAllowedDomains: [], // filled in below
         // STARTTLS on SMTP_PORT, and optionally a second listener that is TLS from the first byte
         smtpTlsKey: (env.SMTP_TLS_KEY || '').trim(),

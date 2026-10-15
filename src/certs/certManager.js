@@ -17,7 +17,11 @@ function readCertInfo(file) {
         const cert = new X509Certificate(fs.readFileSync(file));
         const names = (cert.subjectAltName || '').split(',').map(s => s.trim()).filter(s => s.startsWith('DNS:')).map(s => s.slice(4).toLowerCase());
         // Let's Encrypt staging intermediates are named "(STAGING) ...", so the issuer tells which server issued it
-        return { serial: cert.serialNumber, expires: new Date(cert.validTo), names, staging: /\(STAGING\)/i.test(cert.issuer || '') };
+        const issuerName = /^CN=(.+)$/m.exec(cert.issuer || '');
+        return {
+            serial: cert.serialNumber, expires: new Date(cert.validTo), names,
+            staging: /\(STAGING\)/i.test(cert.issuer || ''), issuer: issuerName ? issuerName[1] : (cert.issuer || '').replace(/\n/g, ' '),
+        };
     } catch {
         return null;
     }
