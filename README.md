@@ -469,7 +469,11 @@ docker compose pull && docker compose up -d     # update later
 
 Dashboard at `http://localhost:30005`, SMTP at `localhost:1025`. Emails and logs are kept in the `message-sandbox-data` and `message-sandbox-logs` volumes (`docker compose down -v` deletes them). Keep `SQLITE_PATH` and `LOG_DIR` unset in `.env` when using Docker. For bind mounts instead of volumes, the folders must be writable by UID 1000 (`sudo mkdir -p ./data ./logs && sudo chown -R 1000:1000 ./data ./logs`); the container explains this at startup if not. To use bind mounts, uncomment the `./data` and `./logs` lines in `docker-compose.yml` in place of the volumes.
 
-To publish SMTP over TLS, set `SMTP_TLS_PORT` in `.env` and uncomment the matching port line. For a certificate, uncomment the `./certs:/certs:ro` volume and set `SMTP_TLS_KEY=/certs/key.pem` and `SMTP_TLS_CERT=/certs/cert.pem`. To listen on a single interface only, prefix an address to the port mapping, for example `"100.110.180.13:${PORT:-30005}:${PORT:-30005}"`. For databases other than SQLite, see [Database setup](#database-setup).
+`PORT`, `SMTP_PORT` and `SMTP_TLS_PORT` are the ports the app listens on **inside the container**. Compose does not read them: the `ports:` lines in `docker-compose.yml` are plain `host:container` pairs, so choose any host port on the left and keep the right side equal to the variable (for example `"2525:1025"` publishes SMTP on host port 2525). If you change a variable in `.env`, change the right side of its line too.
+
+Paths inside the container: the working directory is `/app`; `/app/data` holds the SQLite database (`SQLITE_PATH`) and Let's Encrypt certificates (`ACME_DIR`, `/app/data/certs`); `/app/logs` holds the logs (`LOG_DIR`); `/certs` is where you mount your own certificate.
+
+To publish SMTP over TLS, set `SMTP_TLS_PORT` in `.env` and uncomment the matching port line. For a certificate, uncomment the `./certs:/certs:ro` volume and set `SMTP_TLS_KEY=/certs/key.pem` and `SMTP_TLS_CERT=/certs/cert.pem`. To listen on a single interface only, prefix an address to the port mapping, for example `"100.110.180.13:30005:30005"`. For databases other than SQLite, see [Database setup](#database-setup).
 
 Without Compose:
 
