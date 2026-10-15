@@ -5,7 +5,9 @@ const fs = require('fs');
 const path = require('path');
 const acme = require('acme-client');
 const { createCloudflare } = require('./cloudflare');
+const { waitForTxt } = require('./dnsWait');
 
+// Fallback pause when the record can't be checked on the authoritative servers
 const PROPAGATION_MS = 5000;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -38,7 +40,10 @@ async function issueCertificate({ domains, email, dir, staging, cloudflareToken,
             const name = `_acme-challenge.${authz.identifier.value}`;
             log(`Adding DNS challenge record ${name}`);
             records.set(`${name}:${keyAuthorization}`, await cloudflare.addTxt(name, keyAuthorization));
-            await sleep(PROPAGATION_MS);
+            if (!(await waitForTxt(name, keyAuthorization))) {
+                log(`Could not confirm ${name} on the authoritative name servers; waiting ${PROPAGATION_MS / 1000}s before validating`);
+                await sleep(PROPAGATION_MS);
+            }
         },
         async challengeRemoveFn(authz, challenge, keyAuthorization) {
             const name = `_acme-challenge.${authz.identifier.value}`;
