@@ -53,6 +53,8 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
         ? { key: fs.readFileSync(config.smtpTlsKey), cert: fs.readFileSync(config.smtpTlsCert) }
         : null;
     if (secure && !tls) throw new Error('A TLS listener needs SMTP_TLS_KEY and SMTP_TLS_CERT');
+    // Named in log lines so a failure shows which port it was on
+    const listener = secure ? 'TLS port' : 'SMTP port';
 
     const server = new SMTPServer({
         banner: 'Message Sandbox',
@@ -66,6 +68,15 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
 
         onConnect(session, callback) {
             metrics.inc('message_sandbox_smtp_connections_total');
+            callback();
+        },
+
+        // Runs once a TLS handshake has succeeded (implicit TLS, or after STARTTLS)
+        onSecure(socket, session, callback) {
+            if (config.smtpDebug) {
+                const cipher = socket.getCipher();
+                logToFile(`SMTP TLS established with ${session.remoteAddress}: ${socket.getProtocol()}, ${cipher && cipher.name}, server name ${session.servername || 'not sent'}`);
+            }
             callback();
         },
 
@@ -134,11 +145,21 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
         if (/while initiating TLS/i.test(error.message)) {
             // The client dropped the connection during the handshake: usually it doesn't trust the certificate
             // (self-signed, or a Let's Encrypt staging one), or it is a port scanner. Not a server fault.
-            logToFile(`TLS handshake did not complete${from ? ` from ${from}` : ''}: the client closed the connection (it may not trust the certificate)`);
+            logToFile(`TLS handshake did not complete on the ${listener}${from ? ` from ${from}` : ''}: the client closed the connection (it may not trust the certificate)`);
             return;
         }
-        logToFile(`SMTP server error: ${error.message}`);
+        const detail = config.smtpDebug ? ` [${[error.code, error.meta && error.meta.tlsProtocol].filter(Boolean).join(', ')}]` : '';
+        logToFile(`SMTP server error on the ${listener}: ${error.message}${detail}`);
     });
+    if (config.smtpDebug) {
+        // At the TCP level, so a connection that fails its TLS handshake is still seen, with the client's address
+        server.server.on('connection', socket => {
+            const from = socket.remoteAddress;
+            const started = Date.now();
+            logToFile(`SMTP connection from ${from} on the ${listener}`);
+            socket.once('close', () => logToFile(`SMTP connection from ${from} on the ${listener} closed after ${Date.now() - started} ms`));
+        });
+    }
     return server;
 }
 

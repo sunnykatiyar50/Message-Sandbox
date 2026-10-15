@@ -290,6 +290,21 @@ node src/certs/cli.js status
 node src/certs/cli.js renew --force
 ```
 
+#### Debugging TLS
+
+When TLS is on, the startup log shows what clients will be offered: `SMTP TLS certificate: <names>; issued by <issuer>; valid until <date>`. A client must connect to one of those names, and trust that issuer.
+
+A client that drops the connection mid-handshake logs `TLS handshake did not complete on the TLS port` (or `SMTP port`). It usually means the client doesn't trust the certificate or uses a name that isn't on it. To see every connection, set `SMTP_DEBUG=true` and restart: each one is logged with its source address, and each successful handshake with the TLS version, cipher and the server name the client asked for. Compare a good and a bad client. Message content is never logged. Turn it off again when done.
+
+To see what a client sees, from any machine (the first command is the TLS port, the second is STARTTLS):
+
+```
+openssl s_client -connect mail.example.com:1465 -servername mail.example.com
+openssl s_client -connect mail.example.com:1025 -starttls smtp -servername mail.example.com
+```
+
+`Verify return code: 0 (ok)` means the certificate is trusted. `unable to get local issuer certificate` or `self-signed` means the issuer is untrusted (a staging certificate does this). A hostname error means the name isn't on the certificate.
+
 ### Relaying to a real mail server
 
 Off by default. Set `RELAY_HOST` (plus `RELAY_PORT`, default `587`, `RELAY_SECURE=true` for a TLS-only port, and `RELAY_USER` / `RELAY_PASSWORD`) and the service **also forwards** each message to a real mail server, but only to the recipients on `RELAY_ALLOW`, for example to check how a template looks in a real inbox:
