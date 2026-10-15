@@ -276,7 +276,7 @@ Instead of managing PEM files, let the server get and renew a publicly trusted c
 ACME_DOMAINS=mail.example.com        # comma separated; a wildcard like *.example.com works too
 ACME_EMAIL=you@example.com           # Let's Encrypt sends expiry notices here
 CLOUDFLARE_API_TOKEN=...
-ACME_STAGING=true                    # first run: test against the staging server, then remove this line
+ACME_STAGING=true                    # first run: test against the staging server, then remove this line (the next start replaces the staging certificate with a real one)
 ```
 
 3. Start the server. The certificate is requested at startup, before the SMTP listeners open, and stored in `ACME_DIR` (`/app/data/certs` in Docker, so it is kept in the `message-sandbox-data` volume). STARTTLS turns on, and so does the `SMTP_TLS_PORT` listener if you set it; both use the same certificate.

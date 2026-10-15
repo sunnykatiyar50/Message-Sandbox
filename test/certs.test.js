@@ -71,6 +71,19 @@ describe('renewalReason', () => {
         assert.match(renewalReason(info, ['mail.example.com', 'other.example.com'], 30), /domain list changed/);
         assert.match(renewalReason(info, ['mail.example.com'], 30, Date.now() + 40 * 86400000), /expires/);
     });
+
+    test('reissues when ACME_STAGING no longer matches the issuing server', async () => {
+        const valid = await makeCert(['mail.example.com'], 60);
+        const dir = tempDir();
+        fs.writeFileSync(path.join(dir, 'cert.pem'), valid.cert);
+        const production = readCertInfo(path.join(dir, 'cert.pem'));
+        const staging = { ...production, staging: true };
+
+        assert.equal(production.staging, false);
+        assert.match(renewalReason(production, ['mail.example.com'], 30, Date.now(), true), /ACME_STAGING is now on/);
+        assert.match(renewalReason(staging, ['mail.example.com'], 30, Date.now(), false), /staging server and ACME_STAGING is now off/);
+        assert.equal(renewalReason(staging, ['mail.example.com'], 30, Date.now(), true), null);
+    });
 });
 
 describe('certificate manager', () => {

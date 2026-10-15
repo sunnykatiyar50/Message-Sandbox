@@ -22,8 +22,9 @@ async function main() {
         const info = manager.status();
         if (!info) return console.log(`No certificate in ${config.acmeDir} yet.`);
         const days = Math.floor((info.expires - Date.now()) / 86400000);
-        const due = renewalReason(info, config.acmeDomains, config.acmeRenewDays);
+        const due = renewalReason(info, config.acmeDomains, config.acmeRenewDays, Date.now(), config.acmeStaging);
         console.log(`Domains:  ${info.names.join(', ')}`);
+        console.log(`Issuer:   Let's Encrypt ${info.staging ? 'staging (not trusted by clients)' : 'production'}`);
         console.log(`Expires:  ${info.expires.toISOString().slice(0, 10)} (${days} day(s) left)`);
         console.log(due ? `Renewal:  due now (${due})` : `Renewal:  not due until ${config.acmeRenewDays} day(s) before expiry`);
         return;

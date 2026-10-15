@@ -129,7 +129,16 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
         },
     });
 
-    server.on('error', error => logToFile(`SMTP server error: ${error.message}`));
+    server.on('error', error => {
+        const from = error.remote || error.remoteAddress;
+        if (/while initiating TLS/i.test(error.message)) {
+            // The client dropped the connection during the handshake: usually it doesn't trust the certificate
+            // (self-signed, or a Let's Encrypt staging one), or it is a port scanner. Not a server fault.
+            logToFile(`TLS handshake did not complete${from ? ` from ${from}` : ''}: the client closed the connection (it may not trust the certificate)`);
+            return;
+        }
+        logToFile(`SMTP server error: ${error.message}`);
+    });
     return server;
 }
 
