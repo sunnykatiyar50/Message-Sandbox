@@ -250,7 +250,9 @@ async function loadSession() {
         const status = await response.json();
         userRole = status.role === 'viewer' ? 'viewer' : 'admin';
         const name = status.username || (status.authDisabled ? 'No sign-in' : 'admin');
-        $('currentUser').textContent = userRole === 'viewer' ? `${name} (viewer)` : name;
+        $('userName').textContent = status.authDisabled ? 'Local mode' : name;
+        $('userAvatar').textContent = (status.authDisabled ? 'L' : name).charAt(0);
+        $('userRole').textContent = status.authDisabled ? 'No sign-in' : userRole === 'viewer' ? 'Viewer' : 'Admin';
         $('appVersion').textContent = status.version ? `v${status.version}` : '';
         $('authWarning').classList.toggle('hidden', !status.authDisabled);
         $('logoutButton').classList.toggle('hidden', Boolean(status.authDisabled));

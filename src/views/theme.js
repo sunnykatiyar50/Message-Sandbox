@@ -26,6 +26,12 @@
         if (choice === 'system') root.removeAttribute('data-theme');
         else root.setAttribute('data-theme', choice);
         root.setAttribute('data-theme-choice', choice);
+        var pick = document.querySelectorAll('[data-theme-set]');
+        for (var j = 0; j < pick.length; j++) {
+            var on = pick[j].getAttribute('data-theme-set') === choice;
+            pick[j].classList.toggle('active', on);
+            pick[j].setAttribute('aria-pressed', String(on));
+        }
         var buttons = document.querySelectorAll('[data-theme-toggle]');
         for (var i = 0; i < buttons.length; i++) {
             var next = ORDER[(ORDER.indexOf(choice) + 1) % ORDER.length];
@@ -50,6 +56,13 @@
     document.addEventListener('DOMContentLoaded', function () {
         apply(read());
         document.addEventListener('click', function (event) {
+            var chosen = event.target.closest && event.target.closest('[data-theme-set]');
+            if (chosen) {
+                var value = chosen.getAttribute('data-theme-set');
+                save(value);
+                apply(value);
+                return;
+            }
             var button = event.target.closest && event.target.closest('[data-theme-toggle]');
             if (!button) return;
             var current = root.getAttribute('data-theme-choice') || 'system';
