@@ -874,6 +874,144 @@ body.resizing {
     background: var(--border);
 }
 
+/* Actions on the selection and the "All" box only show in select mode */
+.list-pane .select-only {
+    display: none;
+}
+
+.list-pane.select-mode .tb-btn.select-only,
+.list-pane.select-mode .check-label.select-only {
+    display: inline-flex;
+}
+
+.list-pane.select-mode .tb-menu.select-only {
+    display: block;
+}
+
+/* Three dots menu: Export / Delete selected */
+.tb-menu {
+    position: relative;
+}
+
+.tb-menu-list {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 20;
+    min-width: 180px;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.tb-menu-list.hidden {
+    display: none;
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.menu-item svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+}
+
+.menu-item:hover:not(:disabled) {
+    background: var(--surface-alt);
+}
+
+.menu-item.danger {
+    color: var(--danger);
+}
+
+.menu-item:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+/* Hover actions on a row: mark read/unread, delete */
+.message-row {
+    position: relative;
+}
+
+.row-actions {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    display: none;
+    gap: 2px;
+    padding: 2px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.message-row:hover .row-actions,
+.message-row:focus-within .row-actions {
+    display: flex;
+}
+
+.row-action {
+    display: inline-flex;
+    padding: 5px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.row-action svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.row-action:hover {
+    background: var(--surface-alt);
+    color: var(--text);
+}
+
+.row-action-delete:hover {
+    color: var(--danger);
+}
+
+/* unread row: the button marks it read (open envelope); read row: marks it unread (closed envelope) */
+.message-row.unread .icon-to-unread,
+.message-row:not(.unread) .icon-to-read {
+    display: none;
+}
+
+.list-toolbar .tb-btn.select-toggle[aria-pressed="true"] {
+    background: var(--blue-soft);
+    color: var(--blue);
+}
+
 .list-toolbar .tb-btn.danger:hover:not(:disabled) {
     background: var(--danger-soft);
     color: var(--danger);
@@ -940,7 +1078,7 @@ body.resizing {
     border-left-color: var(--blue);
 }
 
-/* Row checkboxes stay out of the way until you hover a row, or once anything is selected */
+/* Row checkboxes only exist in select mode (the toolbar's Select icon) */
 .row-check {
     padding-top: 2px;
     cursor: pointer;
@@ -951,9 +1089,7 @@ body.resizing {
     transition: width 0.12s, margin 0.12s, opacity 0.12s;
 }
 
-.message-row:hover .row-check,
-.message-row:focus-within .row-check,
-.message-list:has(input:checked) .row-check {
+.select-mode .row-check {
     width: 16px;
     margin-right: 0;
     opacity: 1;

@@ -341,10 +341,58 @@ async function postRead(base, body, query = '') {
 // Both lists: bold with a dot while unread; the dot toggles the state
 function updateRowRead(row, read) {
     row.classList.toggle('unread', !read);
-    const dot = row.querySelector('.read-dot');
-    if (!dot) return;
-    dot.title = read ? 'Mark as unread' : 'Mark as read';
-    dot.setAttribute('aria-label', dot.title);
+    const title = read ? 'Mark as unread' : 'Mark as read';
+    for (const control of row.querySelectorAll('.read-dot, .row-action-read')) {
+        control.title = title;
+        control.setAttribute('aria-label', title);
+    }
+}
+
+// Shown over the right end of a row on hover: mark read/unread, and delete (admin only)
+function rowActions(onToggleRead, onDelete) {
+    const wrap = el('div', 'row-actions');
+    const make = (cls, title, paths, handler) => {
+        const button = el('button', `row-action ${cls}`);
+        button.type = 'button';
+        button.title = title;
+        button.setAttribute('aria-label', title);
+        button.appendChild(svgIcon(paths));
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            handler();
+        });
+        return button;
+    };
+    // the icon follows the state: an open envelope marks read, a closed one marks unread (see .row-action-read in the CSS)
+    const read = make('row-action-read', 'Mark as read',
+        '<g class="icon-to-read"><path d="M21.2 8.4 12 14 2.8 8.4"/><path d="M2.8 8.4 12 2l9.2 6.4V19a2 2 0 0 1-2 2H4.8a2 2 0 0 1-2-2z"/></g>' +
+        '<g class="icon-to-unread"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></g>', onToggleRead);
+    const del = make('row-action-delete admin-only', 'Delete',
+        '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>', onDelete);
+    wrap.append(read, del);
+    return wrap;
+}
+
+// The "more actions" (three dots) menu in a list toolbar
+function bindToolbarMenu(buttonId) {
+    const button = $(buttonId);
+    const list = button.nextElementSibling;
+    const close = () => {
+        list.classList.add('hidden');
+        button.setAttribute('aria-expanded', 'false');
+    };
+    button.addEventListener('click', event => {
+        event.stopPropagation();
+        const open = list.classList.contains('hidden');
+        document.querySelectorAll('.tb-menu-list').forEach(l => l.classList.add('hidden'));
+        list.classList.toggle('hidden', !open);
+        button.setAttribute('aria-expanded', String(open));
+    });
+    list.addEventListener('click', close);
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') close();
+    });
 }
 
 function readDot(onToggle) {
@@ -483,7 +531,7 @@ function renderMessages() {
         check.dataset.id = String(msg.id);
         check.setAttribute('aria-label', `Select email ${msg.id}`);
         check.addEventListener('change', updateSelectionInfo);
-        const checkWrap = el('label', 'row-check admin-only');
+        const checkWrap = el('label', 'row-check');
         checkWrap.appendChild(check);
 
         const top = el('div', 'row-top');
@@ -508,6 +556,7 @@ function renderMessages() {
 
         li.appendChild(checkWrap);
         li.appendChild(body);
+        li.appendChild(rowActions(() => setEmailsRead([msg.id], !msg.read), () => deleteEmails([msg.id])));
         updateRowRead(li, msg.read);
         list.appendChild(li);
     }
@@ -1033,6 +1082,20 @@ function updateSelectionInfo() {
     $('selectAllCheckbox').checked = count > 0 && count === messages.length;
 }
 
+// The list toolbar's "Select" icon switches a list into select mode: only then do the row
+// checkboxes and the actions on the selection appear. Leaving the mode clears the selection.
+function bindSelectMode(buttonId, update) {
+    const button = $(buttonId);
+    const pane = button.closest('.list-pane');
+    button.addEventListener('click', () => {
+        const on = !pane.classList.contains('select-mode');
+        pane.classList.toggle('select-mode', on);
+        button.setAttribute('aria-pressed', String(on));
+        if (!on) pane.querySelectorAll('.message-checkbox').forEach(c => (c.checked = false));
+        update();
+    });
+}
+
 function toggleSelectAll(checked) {
     document.querySelectorAll('.message-checkbox').forEach(c => (c.checked = checked));
     updateSelectionInfo();
@@ -1059,8 +1122,11 @@ async function exportSelectedMessages() {
     }
 }
 
-async function deleteSelectedMessages() {
-    const ids = selectedIds();
+function deleteSelectedMessages() {
+    return deleteEmails(selectedIds());
+}
+
+async function deleteEmails(ids) {
     if (ids.length === 0) return;
     if (!confirm(`Delete ${ids.length} email(s)? This can't be undone.`)) return;
     try {
@@ -1738,6 +1804,8 @@ window.addEventListener('DOMContentLoaded', () => {
     $('nextPage').addEventListener('click', () => changePage(1));
     $('pageSizeSelect').addEventListener('change', changePageSize);
     $('selectAllCheckbox').addEventListener('change', event => toggleSelectAll(event.target.checked));
+    bindSelectMode('selectModeButton', updateSelectionInfo);
+    bindToolbarMenu('emailMoreButton');
     $('deleteSelectedButton').addEventListener('click', deleteSelectedMessages);
     $('exportSelectedButton').addEventListener('click', exportSelectedMessages);
     $('markReadButton').addEventListener('click', () => setEmailsRead(selectedIds(), true));
