@@ -391,7 +391,7 @@ body.sidebar-collapsed .sidebar-toggle {
 .brand-text {
     display: flex;
     flex-direction: column;
-    min-width: 0;
+    flex: none; /* never squeezed: the toggle gives way, the name does not */
     line-height: 1.25;
 }
 
@@ -408,10 +408,18 @@ body.sidebar-collapsed .sidebar-toggle {
     min-width: 0;
     font-weight: 700;
     color: #fff;
-    font-size: 14.5px;
+    font-size: 15px;
+    line-height: 1.2;
+}
+
+/* The name always shows in full: "Message" over "Sandbox", never cut short */
+.brand-name span {
+    display: block;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+}
+
+.brand-version {
+    margin-top: 2px;
 }
 
 .brand-mark {
@@ -2690,8 +2698,10 @@ body.role-viewer .admin-only {
 
 /* ===== Settings page ===== */
 /* Keep the content in a readable column instead of stretching name and value to opposite edges */
-#viewSettings > :not(.view-header) {
+#viewSettings > * {
     max-width: 920px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .settings-group {
