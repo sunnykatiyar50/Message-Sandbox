@@ -483,7 +483,7 @@ function renderMessages() {
         check.dataset.id = String(msg.id);
         check.setAttribute('aria-label', `Select email ${msg.id}`);
         check.addEventListener('change', updateSelectionInfo);
-        const checkWrap = el('label', 'row-check admin-only');
+        const checkWrap = el('label', 'row-check');
         checkWrap.appendChild(check);
 
         const top = el('div', 'row-top');
@@ -1031,6 +1031,20 @@ function updateSelectionInfo() {
     $('markReadButton').disabled = count === 0;
     $('markUnreadButton').disabled = count === 0;
     $('selectAllCheckbox').checked = count > 0 && count === messages.length;
+}
+
+// The list toolbar's "Select" icon switches a list into select mode: only then do the row
+// checkboxes and the actions on the selection appear. Leaving the mode clears the selection.
+function bindSelectMode(buttonId, update) {
+    const button = $(buttonId);
+    const pane = button.closest('.list-pane');
+    button.addEventListener('click', () => {
+        const on = !pane.classList.contains('select-mode');
+        pane.classList.toggle('select-mode', on);
+        button.setAttribute('aria-pressed', String(on));
+        if (!on) pane.querySelectorAll('.message-checkbox').forEach(c => (c.checked = false));
+        update();
+    });
 }
 
 function toggleSelectAll(checked) {
@@ -1738,6 +1752,7 @@ window.addEventListener('DOMContentLoaded', () => {
     $('nextPage').addEventListener('click', () => changePage(1));
     $('pageSizeSelect').addEventListener('change', changePageSize);
     $('selectAllCheckbox').addEventListener('change', event => toggleSelectAll(event.target.checked));
+    bindSelectMode('selectModeButton', updateSelectionInfo);
     $('deleteSelectedButton').addEventListener('click', deleteSelectedMessages);
     $('exportSelectedButton').addEventListener('click', exportSelectedMessages);
     $('markReadButton').addEventListener('click', () => setEmailsRead(selectedIds(), true));

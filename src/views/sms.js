@@ -107,7 +107,7 @@ function smsRender() {
         check.dataset.id = String(msg.id);
         check.setAttribute('aria-label', `Select message ${msg.id}`);
         check.addEventListener('change', smsUpdateSelectionInfo);
-        const checkWrap = el('label', 'row-check admin-only');
+        const checkWrap = el('label', 'row-check');
         checkWrap.appendChild(check);
 
         const top = el('div', 'row-top');
@@ -552,6 +552,7 @@ window.addEventListener('DOMContentLoaded', () => {
     $('smsNext').addEventListener('click', () => smsChangePage(1));
     $('smsPageSize').addEventListener('change', smsChangePageSize);
     $('smsSelectAll').addEventListener('change', event => smsToggleSelectAll(event.target.checked));
+    bindSelectMode('smsSelectModeButton', smsUpdateSelectionInfo);
     $('smsDeleteSelected').addEventListener('click', smsDeleteSelected);
     $('smsMarkRead').addEventListener('click', () => smsSetRead(smsSelectedIds(), true));
     $('smsMarkUnread').addEventListener('click', () => smsSetRead(smsSelectedIds(), false));

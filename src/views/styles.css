@@ -874,6 +874,21 @@ body.resizing {
     background: var(--border);
 }
 
+/* Actions on the selection and the "All" box only show in select mode */
+.list-pane .select-only {
+    display: none;
+}
+
+.list-pane.select-mode .tb-btn.select-only,
+.list-pane.select-mode .check-label.select-only {
+    display: inline-flex;
+}
+
+.list-toolbar .tb-btn.select-toggle[aria-pressed="true"] {
+    background: var(--blue-soft);
+    color: var(--blue);
+}
+
 .list-toolbar .tb-btn.danger:hover:not(:disabled) {
     background: var(--danger-soft);
     color: var(--danger);
@@ -940,7 +955,7 @@ body.resizing {
     border-left-color: var(--blue);
 }
 
-/* Row checkboxes stay out of the way until you hover a row, or once anything is selected */
+/* Row checkboxes only exist in select mode (the toolbar's Select icon) */
 .row-check {
     padding-top: 2px;
     cursor: pointer;
@@ -951,9 +966,7 @@ body.resizing {
     transition: width 0.12s, margin 0.12s, opacity 0.12s;
 }
 
-.message-row:hover .row-check,
-.message-row:focus-within .row-check,
-.message-list:has(input:checked) .row-check {
+.select-mode .row-check {
     width: 16px;
     margin-right: 0;
     opacity: 1;
