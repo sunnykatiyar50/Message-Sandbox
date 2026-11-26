@@ -13,7 +13,7 @@ Shared by both channels: one password-protected dashboard (light and dark themes
 ### SMS gateway
 
 - **`POST /api/sms`** accepts the message your application would have sent to a provider (sender, phone, text), authenticated with an **SMS** key.
-- **SMS list** in the dashboard: search (text, phone, sender), date filters, quick time ranges, pagination, bulk delete, **read / unread** state (see below), keyboard navigation, and a detail pane with one-click **Copy code** for OTPs.
+- **SMS list** in the dashboard: search (text, phone, sender), date filters, quick time ranges, pagination, select mode with bulk delete, **read / unread** state (see below), keyboard navigation, and a detail pane with one-click **Copy code** for OTPs.
 - Messages are shown according to their format, with a switch between views: **JSON** (indented and colour-coded), **HTML** (a safe preview), **XML**, **syslog** (a table with a severity badge) or **plain text** (with clickable links).
 - **OTP detection**: every message comes back with the detected one-time code (`code`). Amounts, order numbers, dates and phone numbers are ignored.
 - **API for tests**: `GET /api/sms/latest?phone=…`, `GET /api/sms/wait?phone=…` (waits for the message to arrive) and `DELETE /api/sms?phone=…` (empties one number between tests).
@@ -25,7 +25,7 @@ Shared by both channels: one password-protected dashboard (light and dark themes
 - **SMTP server** that accepts every message from anyone to anyone. Login with an **Email** API key (the key's name as the username, the key as the password) or the optional `SMTP_USERNAME` / `SMTP_PASSWORD`, optional TLS (STARTTLS and a TLS-only port), an optional list of accepted domains, special recipients that [simulate delivery failures](#simulating-delivery-failures), and an optional, allowlisted [relay](#relaying-to-a-real-mail-server) to a real mail server.
 - **Full MIME parsing**: text and HTML bodies, multipart messages, encoded headers and names, inline images, attachments, and the raw `.eml`. Bcc recipients are recorded from the SMTP envelope.
 - **Web dashboard** with a resizable sidebar and a resizable detail pane:
-  - **Emails**: list with search (subject, addresses, body), date filters, quick time ranges, pagination, bulk delete, **read / unread** state and keyboard navigation (↑/↓ or j/k).
+  - **Emails**: list with search (subject, addresses, body), date filters, quick time ranges, pagination, select mode with bulk delete, **read / unread** state and keyboard navigation (↑/↓ or j/k).
   - Each email opens with tabs: **HTML** (sandboxed preview), **Text**, **Links**, **Checks**, **Headers**, **Attachments** (downloadable), **Thread** and **Raw**, plus one-click **Copy code** for verification codes and **Download .eml**.
   - The HTML preview has a **Mobile / Tablet / Desktop** width switch, a simulated **Dark** mode, and a **Load images** switch (remote images are blocked by default).
   - **Send test**: store a test email from the dashboard, with To, Cc, Bcc, HTML and text bodies and attachments, plus the equivalent `swaks` command.
@@ -200,13 +200,13 @@ Entries are addresses, domains (`example.org`) or subdomain wildcards (`*.test.l
 
 ### Read and unread
 
-Emails and SMS start out unread, shown in bold with a dot, and the **Emails** and **SMS** items in the sidebar show how many are unread. Opening a message (a click, or ↑/↓ and j/k) marks it read; the message that is shown automatically when a list loads does not count. The dot on a row toggles it, and the list toolbar has **Mark read** and **Mark unread** for the selected rows, **Mark all read** for everything matching the current search and time range, and an **Unread only** filter. Admins and viewers can all do this, and the state is shared: it is the same for everyone, and other open dashboards update live (a `read` event on `GET /api/events`).
+Emails and SMS start out unread, shown in bold with a dot, and the **Emails** and **SMS** items in the sidebar show how many are unread. Opening a message (a click, or ↑/↓ and j/k) marks it read; the message that is shown automatically when a list loads does not count. The dot on a row toggles it, and so does the envelope icon that appears when you hover a row (next to a delete icon, for admins). The list toolbar has an **Unread** filter and **All read** for everything matching the current search and time range; its **Select** icon switches the list into select mode, where row checkboxes and **Read** / **Unread** for the selected rows appear (leave select mode to clear the selection). Admins and viewers can all do this, and the state is shared: it is the same for everyone, and other open dashboards update live (a `read` event on `GET /api/events`).
 
 For scripts, `unread=true` on `GET /api/emails` and `GET /api/sms` lists only unread messages, every message carries `read`, and the list responses carry `unreadCount`. Reading through the API, with any key, never marks anything read. `POST /api/emails/read` and `POST /api/sms/read` change the state (dashboard sessions and the admin token only, not API keys): `{ "ids": [1, 2], "read": true }`, or `{ "matching": true, "read": false }` for everything matching the filters in the query string. Messages stored before this existed are treated as read when the server first starts with it.
 
 ### Export
 
-**Export selected** in the email list downloads a zip of the original messages (`email-<id>-<subject>.eml`), for attaching to a bug report or opening in a mail client. The same is available as `GET /api/emails/export?ids=1,2,3` (up to 100 emails and 100 MB; emails a limited key can't see are left out).
+**Export selected** (in the three-dots menu of the email list while selecting rows) downloads a zip of the original messages (`email-<id>-<subject>.eml`), for attaching to a bug report or opening in a mail client. The same is available as `GET /api/emails/export?ids=1,2,3` (up to 100 emails and 100 MB; emails a limited key can't see are left out).
 
 ### Activity
 
