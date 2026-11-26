@@ -1801,6 +1801,24 @@ window.addEventListener('DOMContentLoaded', () => {
         if (currentView() === 'messages') reloadCurrentPage();
     });
 
+    // Setup & API: one section at a time (Quick setup, SMS, Email), remembered between visits
+    const apiTabButtons = [...document.querySelectorAll('[data-api-tab-button]')];
+    const showApiTab = name => {
+        for (const button of apiTabButtons) {
+            const on = button.dataset.apiTabButton === name;
+            button.classList.toggle('active', on);
+            button.setAttribute('aria-selected', String(on));
+        }
+        for (const panel of document.querySelectorAll('[data-api-tab]')) {
+            panel.classList.toggle('hidden', panel.dataset.apiTab !== name);
+        }
+        try { localStorage.setItem('apiTab', name); } catch { /* storage unavailable */ }
+    };
+    for (const button of apiTabButtons) button.addEventListener('click', () => showApiTab(button.dataset.apiTabButton));
+    let savedApiTab = 'quick';
+    try { savedApiTab = localStorage.getItem('apiTab') || 'quick'; } catch { /* storage unavailable */ }
+    showApiTab(apiTabButtons.some(b => b.dataset.apiTabButton === savedApiTab) ? savedApiTab : 'quick');
+
     window.addEventListener('hashchange', showView);
     // Know the role before showing a view, so a viewer never lands on an admin-only page
     loadSession().then(() => {

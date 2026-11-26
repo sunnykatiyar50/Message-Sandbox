@@ -219,7 +219,7 @@ The **Activity** page (admin only) shows an audit trail and the errors, so you d
 - **SMTP problems**: failed logins, TLS handshakes that didn't complete, clients sitting silent on the TLS port, emails that couldn't be stored
 - **Failed webhooks and relays**, certificate renewals and their failures, retention cleanups, server errors and startup/shutdown
 
-Filter by level (warnings and errors by default), category, text or one client address; click an address to see everything it did. The cards on top count errors and warnings from the last 24 hours and list the addresses behind the most of them, and the sidebar shows a red badge when there were errors. A long message such as a stack trace opens when clicked.
+Filter by level (warnings and errors by default), category, text or one client address; click an address to see everything it did. The cards on top count errors and warnings from the last 24 hours and list the addresses behind the most of them, and the sidebar shows a red badge for errors that happened since you last opened this page (it clears once you open it). A long message such as a stack trace opens when clicked.
 
 Events are stored in the database, kept for `ACTIVITY_RETENTION_DAYS` (30) and at most `ACTIVITY_MAX_ROWS` (20000), and cleaned up hourly. Repeated events from one client (a wrong key in a retry loop, a rate-limit flood) are recorded once a minute. The log files still get every line, and message content, API keys and passwords are never recorded. The same data is available to scripts at `GET /api/activity` (admin token): `?level=problems|error|warn|info`, `category`, `ip`, `search`, `after`/`before`, `page` and `pageSize`.
 

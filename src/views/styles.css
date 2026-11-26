@@ -391,7 +391,7 @@ body.sidebar-collapsed .sidebar-toggle {
 .brand-text {
     display: flex;
     flex-direction: column;
-    min-width: 0;
+    flex: none; /* never squeezed: the toggle gives way, the name does not */
     line-height: 1.25;
 }
 
@@ -408,10 +408,20 @@ body.sidebar-collapsed .sidebar-toggle {
     min-width: 0;
     font-weight: 700;
     color: #fff;
-    font-size: 14.5px;
+    font-size: 15px;
+    line-height: 1.2;
+}
+
+/* The name always shows in full: "Message" over "Sandbox", never cut short */
+.brand-name span {
+    display: block;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+}
+
+/* The version sits on its own row under the header */
+.brand-version {
+    padding: 0 10px 10px;
+    margin-top: -2px;
 }
 
 .brand-mark {
@@ -744,18 +754,134 @@ body.resizing {
 
 .list-toolbar {
     border-bottom: 1px solid var(--border);
-    flex-wrap: wrap; /* the read/unread and delete buttons drop to a second line in a narrow list */
-    row-gap: 6px;
+    gap: 8px;
+    min-height: 44px;
+    container-type: inline-size;
 }
 
 .list-toolbar .check-label {
     white-space: nowrap;
 }
 
-.list-toolbar button {
-    padding: 4px 9px;
+.selection-info {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--blue);
+    white-space: nowrap;
+}
+
+.selection-info:empty {
+    display: none;
+}
+
+/* "Unread" filter: a pill that lights up when on */
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    flex: none;
+}
+
+.filter-chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.filter-chip span {
+    padding: 3px 11px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: var(--surface);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.filter-chip:hover span {
+    color: var(--text);
+}
+
+.filter-chip input:checked + span {
+    background: var(--blue-soft);
+    border-color: var(--blue);
+    color: var(--blue);
+    font-weight: 600;
+}
+
+.filter-chip input:focus-visible + span {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
+.tb-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--border);
+    flex: none;
+}
+
+.tb-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+}
+
+/* Flat icon buttons with a label; the label hides when the list is narrow */
+.list-toolbar .tb-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
     font-size: 12.5px;
     white-space: nowrap;
+    cursor: pointer;
+}
+
+.list-toolbar .tb-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+}
+
+.list-toolbar .tb-btn:hover:not(:disabled) {
+    background: var(--border);
+}
+
+.list-toolbar .tb-btn.danger:hover:not(:disabled) {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.list-toolbar .tb-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+@container (max-width: 560px) {
+    .list-toolbar .tb-btn span {
+        display: none;
+    }
+    .list-toolbar .tb-btn {
+        padding: 6px;
+    }
+}
+
+@container (max-width: 400px) {
+    .list-toolbar .check-label {
+        font-size: 0;
+        gap: 0;
+    }
 }
 
 .list-footer {
@@ -798,9 +924,23 @@ body.resizing {
     border-left-color: var(--blue);
 }
 
+/* Row checkboxes stay out of the way until you hover a row, or once anything is selected */
 .row-check {
     padding-top: 2px;
     cursor: pointer;
+    width: 0;
+    margin-right: -10px; /* cancels the row gap while collapsed */
+    overflow: hidden;
+    opacity: 0;
+    transition: width 0.12s, margin 0.12s, opacity 0.12s;
+}
+
+.message-row:hover .row-check,
+.message-row:focus-within .row-check,
+.message-list:has(input:checked) .row-check {
+    width: 16px;
+    margin-right: 0;
+    opacity: 1;
 }
 
 .row-body {
@@ -1173,6 +1313,15 @@ body.resizing {
     gap: 12px;
 }
 
+.api-tabs {
+    align-self: flex-start;
+}
+
+.api-tabs button {
+    padding: 6px 16px;
+    font-size: 13px;
+}
+
 .api-columns {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1226,8 +1375,21 @@ body.resizing {
     margin-bottom: 6px;
 }
 
+.quick-title {
+    padding: 8px 10px 8px 12px;
+    margin-bottom: 10px;
+    background: var(--blue-soft);
+    border-left: 4px solid var(--blue);
+    border-radius: 6px;
+}
+
 .api-layout .quick-title h4 {
     margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    color: var(--text);
 }
 
 .quick-list {
@@ -2537,6 +2699,13 @@ body.role-viewer .admin-only {
 }
 
 /* ===== Settings page ===== */
+/* Keep the content in a readable column instead of stretching name and value to opposite edges */
+#viewSettings > * {
+    max-width: 920px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
 .settings-group {
     margin-bottom: 14px;
     padding: 4px 0 0;
@@ -2544,16 +2713,17 @@ body.role-viewer .admin-only {
 
 .settings-group h3 {
     margin: 0;
-    padding: 12px 16px;
+    padding: 12px 24px;
     font-size: 14px;
     border-bottom: 1px solid var(--border);
 }
 
 .settings-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
-    gap: 8px 24px;
-    padding: 12px 16px;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+    gap: 8px 40px;
+    padding: 14px 24px;
+    align-items: start;
     border-bottom: 1px solid var(--border);
 }
 
