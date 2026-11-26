@@ -411,15 +411,6 @@ body.sidebar-collapsed .sidebar-toggle {
     line-height: 1.25;
 }
 
-.brand-version {
-    font-size: 11.5px;
-    color: var(--sidebar-text);
-}
-
-.brand-version:empty {
-    display: none;
-}
-
 .brand-name {
     min-width: 0;
     font-weight: 700;
@@ -432,12 +423,6 @@ body.sidebar-collapsed .sidebar-toggle {
 .brand-name span {
     display: block;
     white-space: nowrap;
-}
-
-/* The version sits on its own row under the header */
-.brand-version {
-    padding: 0 10px 10px;
-    margin-top: -2px;
 }
 
 .brand-mark {
@@ -619,6 +604,196 @@ body.sidebar-collapsed .sidebar .range-select {
     gap: 2px;
     padding-top: 10px;
     border-top: 1px solid #1f2937;
+}
+
+/* Footer: who you are, the theme, and the version */
+.sidebar-footer {
+    gap: 8px;
+}
+
+.sidebar-footer .nav-link {
+    margin-bottom: 0;
+}
+
+.sidebar-user {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 4px;
+    padding: 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.user-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.avatar {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--blue), #22d3ee);
+    color: #fff;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.user-meta {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-start;
+}
+
+.user-name {
+    max-width: 100%;
+    color: #fff;
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.role-badge {
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: rgba(79, 140, 255, 0.22);
+    color: #b9d2ff;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.signout-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #e6edf3;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.signout-btn:hover {
+    background: rgba(239, 90, 80, 0.28);
+    color: #fff;
+}
+
+.signout-btn svg,
+.theme-switch svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    flex: none;
+}
+
+/* Three-way theme switch: the selected option is highlighted, so a click always does what it says */
+.theme-switch {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.theme-switch button {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 5px 2px;
+    min-width: 0;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    color: var(--sidebar-text);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.theme-switch button:hover {
+    color: #fff;
+}
+
+.theme-switch button.active {
+    background: rgba(255, 255, 255, 0.16);
+    color: #fff;
+}
+
+.version-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 10px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--sidebar-text);
+}
+
+.version-hint {
+    padding: 1px 9px;
+    border-radius: 999px;
+    background: rgba(79, 140, 255, 0.22);
+    color: #b9d2ff;
+    font-size: 11.5px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.version-hint:hover {
+    background: rgba(79, 140, 255, 0.38);
+    color: #fff;
+}
+
+.version-hint.hidden {
+    display: none;
+}
+
+/* Collapsed to icons: the avatar, the active theme and sign out icons only */
+body.sidebar-collapsed .sidebar-user {
+    padding: 6px 0;
+    background: none;
+    align-items: center;
+}
+
+body.sidebar-collapsed .signout-btn {
+    width: auto;
+    padding: 7px;
+    background: none;
+}
+
+body.sidebar-collapsed .theme-switch {
+    flex-direction: column;
+    border: 0;
+    background: none;
+}
+
+body.sidebar-collapsed .theme-switch button:not(.active) {
+    display: none;
 }
 
 .auth-warning {
