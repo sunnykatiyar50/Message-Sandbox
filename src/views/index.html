@@ -48,6 +48,15 @@
                 <svg viewBox="0 0 24 24"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
                 <span class="label">API keys</span>
             </a>
+            <a href="#/activity" class="nav-link admin-only" data-view="activity" title="Activity">
+                <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                <span class="label">Activity</span>
+                <span id="activityBadge" class="nav-badge hidden" title="Errors in the last 24 hours"></span>
+            </a>
+            <a href="#/settings" class="nav-link admin-only" data-view="settings" title="Settings">
+                <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                <span class="label">Settings</span>
+            </a>
             <a href="#/api" class="nav-link" data-view="api" title="Setup &amp; API">
                 <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                 <span class="label">Setup &amp; API</span>
@@ -442,6 +451,103 @@
             <p id="keysFootnote" class="hint"></p>
         </section>
 
+        <!-- ===== Activity: audit trail and errors ===== -->
+        <section id="viewActivity" class="view hidden" data-view="activity">
+            <header class="view-header">
+                <div class="view-title">
+                    <h1>Activity</h1>
+                    <span class="muted">Sign-ins, API key changes, rejected requests, SMTP and TLS problems, failed webhooks and relays, rate-limit hits and server errors. <span id="activityRetention"></span></span>
+                </div>
+                <div class="toolbar">
+                    <input type="search" id="activitySearch" placeholder="Search message, address, user" aria-label="Search activity" />
+                    <select id="activityLevel" aria-label="Level">
+                        <option value="problems">Warnings and errors</option>
+                        <option value="error">Errors</option>
+                        <option value="warn">Warnings</option>
+                        <option value="info">Info</option>
+                        <option value="">All levels</option>
+                    </select>
+                    <select id="activityCategory" aria-label="Category">
+                        <option value="">All categories</option>
+                        <option value="auth">Sign-in and keys used</option>
+                        <option value="keys">API key changes</option>
+                        <option value="smtp">SMTP</option>
+                        <option value="tls">TLS and certificates</option>
+                        <option value="ratelimit">Rate limits</option>
+                        <option value="webhook">Webhook</option>
+                        <option value="relay">Relay</option>
+                        <option value="settings">Settings changes</option>
+                        <option value="system">Server</option>
+                    </select>
+                    <button id="activitySearchButton" type="button" class="primary">Search</button>
+                    <button id="activityRefreshButton" type="button" class="ghost icon-only" title="Refresh" aria-label="Refresh">
+                        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    </button>
+                </div>
+            </header>
+
+            <div class="activity-summary">
+                <div class="card activity-stat"><span id="activityErrors" class="activity-count level-error">0</span><span class="muted">errors, last 24 h</span></div>
+                <div class="card activity-stat"><span id="activityWarnings" class="activity-count level-warn">0</span><span class="muted">warnings, last 24 h</span></div>
+                <div class="card activity-ips">
+                    <h4>Addresses behind most warnings and errors <span class="muted">(24 h, click to filter)</span></h4>
+                    <ul id="activityTopIps" class="activity-ip-list"></ul>
+                    <p id="activityNoIps" class="muted hidden">No warnings or errors from any address.</p>
+                </div>
+            </div>
+
+            <div class="card keys-card">
+                <div id="activityIpFilter" class="activity-filter-row hidden">
+                    <span class="muted">Only address</span>
+                    <button type="button" id="activityIpChip" class="filter-chip" title="Show all addresses">
+                        <span id="activityIpChipText"></span>
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>
+                <table class="keys-table activity-table">
+                    <thead>
+                        <tr><th>Time</th><th>Level</th><th>Category</th><th>Message</th><th>Address</th><th>User</th></tr>
+                    </thead>
+                    <tbody id="activityBody"></tbody>
+                </table>
+                <p id="activityEmpty" class="empty-state hidden">No matching activity.</p>
+                <div class="list-footer">
+                    <div class="pager">
+                        <button id="activityPrev" type="button" class="ghost" disabled>‹ Prev</button>
+                        <span id="activityPageInfo"></span>
+                        <button id="activityNext" type="button" class="ghost" disabled>Next ›</button>
+                    </div>
+                    <button id="activityClearButton" type="button" class="danger-ghost">Clear all</button>
+                </div>
+            </div>
+            <p id="activityFootnote" class="hint"></p>
+        </section>
+
+        <!-- ===== Settings ===== -->
+        <section id="viewSettings" class="view hidden" data-view="settings">
+            <header class="view-header">
+                <div class="view-title">
+                    <h1>Settings</h1>
+                    <span class="muted">A value saved here wins over .env; without one, .env applies, then the default. Secrets and anything needed to start the server stay in .env.</span>
+                </div>
+                <div class="toolbar">
+                    <button id="settingsDiscard" type="button" class="ghost" disabled>Discard changes</button>
+                    <button id="settingsSave" type="button" class="primary" disabled>Save changes</button>
+                </div>
+            </header>
+
+            <div id="settingsProblem" class="card settings-notice settings-notice-error hidden" role="alert"></div>
+            <div id="settingsRestart" class="card settings-notice hidden" role="status"></div>
+
+            <div id="settingsGroups"></div>
+
+            <div class="card settings-envonly">
+                <h4>Only in .env</h4>
+                <ul id="settingsEnvOnly"></ul>
+            </div>
+            <p id="settingsFootnote" class="hint"></p>
+        </section>
+
         <!-- ===== Setup & API ===== -->
         <section id="viewApi" class="view hidden" data-view="api">
             <header class="view-header">
@@ -637,6 +743,8 @@
     <script src="formatters.js"></script>
     <script src="scripts.js"></script>
     <script src="sms.js"></script>
+    <script src="activity.js"></script>
+    <script src="settings.js"></script>
     <script src="pwa.js" defer></script>
 </body>
 </html>

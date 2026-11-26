@@ -1,10 +1,12 @@
 require('dotenv').config();
 
-const { loadConfig } = require('./config');
 const initializeDatabase = require('./database/initDatabase');
 const EmailModel = require('./models/emailModel');
 const SmsModel = require('./models/smsModel');
 const ApiKeyModel = require('./models/apiKeyModel');
+const ActivityModel = require('./models/activityModel');
+const SettingsModel = require('./models/settingsModel');
+const { Settings } = require('./settings/settings');
 const { createApp } = require('./server');
 const { createIngest } = require('./mail/ingest');
 const { createSmsIngest } = require('./sms/ingest');
@@ -15,51 +17,80 @@ const { createSmtpServer, listen: listenSmtp } = require('./mail/smtpServer');
 const { createCertManager, readCertInfo } = require('./certs/certManager');
 const { setupTls } = require('./certs/tlsSetup');
 const { logToFile } = require('./utils/logger');
+const activity = require('./utils/activity');
 const { Metrics } = require('./utils/metrics');
 
 const fs = require('fs');
 
 const HOUR_MS = 60 * 60 * 1000;
 
-function scheduleRetention({ emailModel, smsModel }, retentionDays) {
-    if (!retentionDays) return;
+// Hourly, and again right away when the setting changes. config is read each time, so RETENTION_DAYS can change
+// while the server runs (0 keeps everything). Returns the function that runs a purge.
+function scheduleRetention({ emailModel, smsModel }, config) {
     const purge = async () => {
+        const retentionDays = config.retentionDays;
+        if (!retentionDays) return;
         try {
             const cutoff = new Date(Date.now() - retentionDays * 24 * HOUR_MS);
             const emails = await emailModel.deleteOlderThan(cutoff);
             const messages = await smsModel.deleteOlderThan(cutoff);
             if (emails || messages) {
-                logToFile(`Retention: deleted ${emails} email(s) and ${messages} SMS message(s) older than ${retentionDays} day(s)`);
+                activity.record({ category: 'system', message: `Retention: deleted ${emails} email(s) and ${messages} SMS message(s) older than ${retentionDays} day(s)` });
             }
         } catch (error) {
-            logToFile(`Retention cleanup failed: ${error.message}`);
+            activity.record({ level: 'error', category: 'system', message: `Retention cleanup failed: ${error.message}` });
         }
     };
     purge();
     setInterval(purge, HOUR_MS).unref();
+    return purge;
+}
+
+// Keeps the Activity page's table within ACTIVITY_RETENTION_DAYS and ACTIVITY_MAX_ROWS (hourly)
+function scheduleActivityCleanup(activityModel, config) {
+    const prune = async () => {
+        const { activityRetentionDays, activityMaxRows } = config;
+        try {
+            if (activityRetentionDays) await activityModel.deleteOlderThan(new Date(Date.now() - activityRetentionDays * 24 * HOUR_MS));
+            if (activityMaxRows) await activityModel.trimTo(activityMaxRows);
+        } catch (error) {
+            logToFile(`Activity cleanup failed: ${error.message}`);
+        }
+    };
+    prune();
+    setInterval(prune, HOUR_MS).unref();
+    return prune;
 }
 
 async function main() {
-    const config = loadConfig();
-    if (config.authDisabled) {
-        logToFile('WARNING: AUTH_DISABLED=true - the API and dashboard are open to anyone who can reach this server');
-    }
-
     const db = await initializeDatabase();
+    // Settings saved on the dashboard win over .env; without one, .env applies (see settings/settings.js)
+    const settings = new Settings({ model: new SettingsModel(db), log: logToFile });
+    const config = await settings.load();
     const emailModel = new EmailModel(db);
     const smsModel = new SmsModel(db);
     // Dashboard-created API keys are encrypted with a key derived from SESSION_SECRET
     const apiKeyModel = new ApiKeyModel(db, { encryptionSecret: config.sessionSecret });
+    // Audit trail and errors for the Activity page: events are recorded from here on
+    const activityModel = new ActivityModel(db);
+    activity.attach(activityModel);
+    const pruneActivity = scheduleActivityCleanup(activityModel, config);
     const activeKeys = (await apiKeyModel.list()).filter(k => !k.revokedAt).length;
     if (!config.authDisabled && activeKeys === 0) {
         logToFile('No API keys yet: sign in to the dashboard and create one on the API keys page');
     }
-    scheduleRetention({ emailModel, smsModel }, config.retentionDays);
+    const purgeOld = scheduleRetention({ emailModel, smsModel }, config);
+    settings.onChange(keys => {
+        if (keys.includes('RETENTION_DAYS')) purgeOld();
+        if (keys.some(key => key.startsWith('ACTIVITY_'))) pruneActivity();
+    });
 
     // TLS is optional: if it can't be set up the server starts without it (the reason is logged). With
     // ACME_DOMAINS the Let's Encrypt certificate has to exist before the TLS listeners start.
-    const certManager = config.acmeDomains.length ? createCertManager(config, { log: logToFile }) : null;
-    const tlsReady = await setupTls(config, { certManager, log: logToFile });
+    // Certificate messages also go to the Activity page; failures count as errors, problems as warnings
+    const certLog = message => activity.record({ level: /error|fail/i.test(message) ? 'error' : /warning|could not|cannot|unable/i.test(message) ? 'warn' : 'info', category: 'tls', message });
+    const certManager = config.acmeDomains.length ? createCertManager(config, { log: certLog }) : null;
+    const tlsReady = await setupTls(config, { certManager, log: certLog });
     if (tlsReady && certManager) certManager.markLoaded();
     if (tlsReady) {
         // What clients will be shown, so a name or issuer mismatch is visible without a debugger
@@ -75,9 +106,12 @@ async function main() {
     if (relay) logToFile(`Relay enabled: mail for ${config.relayAllow.length} allowed recipient rule(s) is forwarded via ${config.relayHost}`);
     const ingest = createIngest({ emailModel, events, webhook, relay, metrics });
     const ingestSms = createSmsIngest({ smsModel, events, webhook, metrics });
-    const app = createApp({ config, emailModel, smsModel, apiKeyModel, ingest, ingestSms, events, metrics });
+    const app = createApp({ config, emailModel, smsModel, apiKeyModel, activityModel, settings, ingest, ingestSms, events, metrics });
     const server = app.listen(config.port, () => {
-        logToFile(`Dashboard and API are running on http://localhost:${config.port}`);
+        activity.record({ category: 'system', message: `Dashboard and API are running on http://localhost:${config.port} (version ${require('../package.json').version})` });
+        if (config.authDisabled) {
+            activity.record({ level: 'warn', category: 'system', message: 'AUTH_DISABLED=true: the API and dashboard are open to anyone who can reach this server' });
+        }
     });
 
     const smtp = createSmtpServer({ config, ingest, metrics });
@@ -88,6 +122,10 @@ async function main() {
         `(${config.smtpUsername ? 'login required' : 'any or no login accepted'}${tlsNote})`
     );
     const smtpServers = [smtp];
+    // The size limit is handed to smtp-server when it starts, so a change is passed on to the running servers
+    settings.onChange((keys, current) => {
+        if (keys.includes('MAX_EMAIL_SIZE_MB')) for (const server of smtpServers) server.options.size = current.maxEmailBytes;
+    });
     if (config.smtpTlsPort) {
         const smtpTls = createSmtpServer({ config, ingest, secure: true, metrics });
         const tlsPort = await listenSmtp(smtpTls, { port: config.smtpTlsPort, host: config.smtpHost });
@@ -113,9 +151,9 @@ function handleShutdown({ server, smtpServers, db }) {
     const shutdown = signal => {
         if (shuttingDown) return;
         shuttingDown = true;
-        logToFile(`${signal} received, shutting down`);
+        activity.record({ category: 'system', message: `${signal} received, shutting down` });
         setTimeout(() => {
-            logToFile('Shutdown timed out, exiting');
+            activity.record({ level: 'error', category: 'system', message: 'Shutdown timed out, exiting' });
             process.exit(1);
         }, 8000).unref();
         const closing = [...smtpServers.map(smtp => new Promise(resolve => smtp.close(resolve))), new Promise(resolve => server.close(resolve))];

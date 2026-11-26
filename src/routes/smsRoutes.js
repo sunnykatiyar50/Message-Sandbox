@@ -1,5 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const { rateLimitHandler } = require('../utils/activity');
 const SmsController = require('../controllers/smsController');
 const {
     validateNewSms,
@@ -14,10 +15,11 @@ function createSmsRoutes({ smsModel, ingestSms, events, auth, config }) {
 
     const ingestLimiter = rateLimit({
         windowMs: 60 * 1000,
-        limit: config.smsRateLimit,
+        limit: () => config.smsRateLimit,
         standardHeaders: 'draft-8',
         legacyHeaders: false,
         message: { error: 'Too many messages, slow down.' },
+        handler: rateLimitHandler('POST /api/sms'),
     });
 
     // Submit a message: a Send key, or an admin (the dashboard's test form)

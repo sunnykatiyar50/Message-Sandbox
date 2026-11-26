@@ -8,7 +8,7 @@ This project merges the former SMS Test Service and Email Test Service into one 
 
 ## Features
 
-Shared by both channels: one password-protected dashboard (light and dark themes, resizable panes, optional read-only viewer accounts), API keys managed on a page, an admin token for scripts, live updates, a webhook, Prometheus metrics, rate limiting, security headers, optional automatic cleanup of old messages, and daily-rotated logs. Message content is never logged. The dashboard is also an installable app (PWA): browsers offer **Install** on HTTPS or `localhost` (not on a plain-HTTP LAN address), and the service worker caches only static files, never messages or API responses.
+Shared by both channels: one password-protected dashboard (light and dark themes, resizable panes, optional read-only viewer accounts), API keys managed on a page, an [Activity page](#activity) with the audit trail and errors, a [Settings page](#settings-page) for most configuration, an admin token for scripts, live updates, a webhook, Prometheus metrics, rate limiting, security headers, optional automatic cleanup of old messages, and daily-rotated logs. Message content is never logged. The dashboard is also an installable app (PWA): browsers offer **Install** on HTTPS or `localhost` (not on a plain-HTTP LAN address), and the service worker caches only static files, never messages or API responses.
 
 ### SMS gateway
 
@@ -67,12 +67,13 @@ message-sandbox
 │   │   └── compose.js            # Builds the raw message for "Send test"
 │   ├── sms/ingest.js             # An SMS in: store it, wake waiters and the live stream, call the webhook
 │   ├── controllers               # emailController.js, smsController.js, eventsController.js (live stream)
-│   ├── routes                    # /api/emails, /api/sms, /api/keys
-│   ├── models                    # emailModel.js, smsModel.js, apiKeyModel.js
+│   ├── routes                    # /api/emails, /api/sms, /api/keys, /api/activity, /api/settings
+│   ├── models                    # emailModel.js, smsModel.js, apiKeyModel.js, activityModel.js, settingsModel.js
+│   ├── settings                  # definitions.js (what the Settings page can change), settings.js (database over .env)
 │   ├── middleware                # auth.js (sessions, keys, ADMIN_TOKEN), validate.js
 │   ├── database                  # SQLite (node:sqlite), PostgreSQL, MySQL
-│   ├── utils                     # otp.js, mask.js, longPoll.js, links.js, recipients.js, metrics.js, zip.js, apiKeys.js, session.js, logger.js, time.js
-│   └── views                     # Dashboard (static files): scripts.js (shell, emails), sms.js, formatters.js (SMS message formats)
+│   ├── utils                     # otp.js, mask.js, longPoll.js, links.js, recipients.js, metrics.js, zip.js, apiKeys.js, session.js, logger.js, activity.js (audit trail and errors), time.js
+│   └── views                     # Dashboard (static files): scripts.js (shell, emails), sms.js, activity.js (Activity page), formatters.js (SMS message formats)
 ├── client                        # Zero-dependency helper for E2E tests, email and SMS (index.js + index.d.ts)
 ├── test                          # node:test suites (npm test)
 ├── .github/workflows             # docker.yml: tests, publishes the image. release.yml: GitHub Release
@@ -199,6 +200,34 @@ Entries are addresses, domains (`example.org`) or subdomain wildcards (`*.test.l
 ### Export
 
 **Export selected** in the email list downloads a zip of the original messages (`email-<id>-<subject>.eml`), for attaching to a bug report or opening in a mail client. The same is available as `GET /api/emails/export?ids=1,2,3` (up to 100 emails and 100 MB; emails a limited key can't see are left out).
+
+### Activity
+
+The **Activity** page (admin only) shows an audit trail and the errors, so you don't have to open the log files. It lists:
+
+- **Sign-ins**, failed and successful, with the client address
+- **Requests with a missing, wrong or revoked API key**, and keys used where another type is needed
+- **API key changes** (created, renamed, revealed, revoked, deleted) and who made them
+- **Rate-limit hits** (`429`) on `POST /api/sms`, `POST /api/emails/test` and the login
+- **SMTP problems**: failed logins, TLS handshakes that didn't complete, clients sitting silent on the TLS port, emails that couldn't be stored
+- **Failed webhooks and relays**, certificate renewals and their failures, retention cleanups, server errors and startup/shutdown
+
+Filter by level (warnings and errors by default), category, text or one client address; click an address to see everything it did. The cards on top count errors and warnings from the last 24 hours and list the addresses behind the most of them, and the sidebar shows a red badge when there were errors. A long message such as a stack trace opens when clicked.
+
+Events are stored in the database, kept for `ACTIVITY_RETENTION_DAYS` (30) and at most `ACTIVITY_MAX_ROWS` (20000), and cleaned up hourly. Repeated events from one client (a wrong key in a retry loop, a rate-limit flood) are recorded once a minute. The log files still get every line, and message content, API keys and passwords are never recorded. The same data is available to scripts at `GET /api/activity` (admin token): `?level=problems|error|warn|info`, `category`, `ip`, `search`, `after`/`before`, `page` and `pageSize`.
+
+### Settings page
+
+The **Settings** page (admin only) edits most of the environment variables in the dashboard, so a rate limit or a retention period can change without editing `.env` and restarting. For each setting, **a value saved on the page wins; without one, `.env` applies; without that, the default.** The page shows where each value comes from (*Saved here*, *.env* or *Default*), and **Use .env value** removes the saved value.
+
+- **Applied at once:** rate limits, sign-in length, metrics, link checking, largest email, simulated failures, SMTP debug logging, the allowed domains, and the retention settings (a purge runs right away).
+- **Applied at startup:** ports, listen address, TLS and Let's Encrypt, the relay, and the webhook URL. They are saved immediately, marked *Restart to apply* until the server has been restarted, and the page lists what is still waiting.
+- **Stays in `.env`:** `ADMIN_*`, `VIEWER_USERS`, `SESSION_SECRET`, `AUTH_DISABLED`, `SMTP_USERNAME`/`SMTP_PASSWORD`, `RELAY_USER`/`RELAY_PASSWORD`, `WEBHOOK_SECRET`, `CLOUDFLARE_API_TOKEN`, the database connection, `TRUST_PROXY` and the log settings. Passwords and tokens are never stored in the database or shown on the page, and the page cannot change who can sign in.
+- **Checked before saving:** values go through the same validation as `.env`, as a whole: a relay without allowed recipients, a TLS port without a certificate or a malformed domain list is refused with the reason, and nothing is saved.
+- **Audited:** every change (who, old and new value) appears on the Activity page under *Settings changes*. The webhook URL is recorded as changed, without its value, since it can carry a token.
+- **If `.env` changes later** so that the saved values no longer fit (for example a relay's allowed recipients were removed from `.env`), the server still starts, ignores the saved values and says so on the Settings page, instead of failing to start.
+
+The API is `GET /api/settings` and `PUT /api/settings` with `{ "changes": { "SMS_RATE_LIMIT": "200", "RETENTION_DAYS": null } }` (a value saves it, `null` goes back to `.env` or the default; all or nothing), for an admin token or a signed-in admin.
 
 ### Metrics
 
@@ -471,6 +500,8 @@ For an SMS the payload is `{ "event": "sms.received", "sms": { "id", "sender", "
 | `DELETE` | `/api/emails/:id` | Admin. Delete an email and its attachments (`404` if it doesn't exist) |
 | `DELETE` | `/api/emails` | Admin. Delete several (up to 500): `{ "ids": [1, 2, 3] }`. Or empty one inbox: `?to=user@example.com` (other filters narrow it further). One of the two is required, so a bare `DELETE` deletes nothing |
 | `GET` / `POST` / `DELETE` | `/api/keys` … | Admin. List, create (`{ "name": "ci-tests", "scope"?: "read" | "send", "allowedRecipients"?: "a@x.com, example.org" }`; `allowedRecipients` only for Read keys), reveal (`POST /:id/reveal`) and revoke keys |
+| `GET` / `PUT` | `/api/settings` | Admin. The Settings page's settings with their source, and `{ "changes": { "NAME": "value" | null } }` to save or reset them |
+| `GET` / `DELETE` | `/api/activity`, `/api/activity/summary` | Admin. The Activity page's events (filters above), counts for the last 24 hours with the busiest addresses, and `DELETE` to clear them |
 | `GET` | `/api/info` | SMTP port and whether SMTP login is required (used by the dashboard) |
 | `GET` | `/health` | Public. `{ "status": "ok" }` when the database is reachable, `503` otherwise |
 
@@ -552,6 +583,8 @@ docker compose --profile postgres up -d     # or --profile mysql
 
 See `sample.env` for a commented template.
 
+Most of the settings below can also be changed on the dashboard's **Settings** page (see [Settings page](#settings-page)); a value saved there wins over `.env`. Secrets and the settings needed to start the server stay in `.env` only.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `30005` | Dashboard and API port |
@@ -585,6 +618,8 @@ See `sample.env` for a commented template.
 | `SMS_RATE_LIMIT` | `120` | Max `POST /api/sms` requests per minute per client IP |
 | `API_RATE_LIMIT` | `120` | Max `POST /api/emails/test` requests per minute per client IP |
 | `RETENTION_DAYS` | `0` | Delete emails and SMS older than this many days, checked hourly (`0` keeps everything) |
+| `ACTIVITY_RETENTION_DAYS` | `30` | Keep Activity page events this many days (`0` = no age limit) |
+| `ACTIVITY_MAX_ROWS` | `20000` | Keep at most this many Activity events, newest first (`0` = no cap) |
 | `LOG_DIR`, `LOG_TO_FILE` | `./logs`, `true` | Log directory; `false` logs to stdout only |
 | `DB_TYPE` | `sqlite` | `sqlite`, `postgres`, or `mysql` |
 | `SQLITE_PATH` | `./message-sandbox.sqlite` | SQLite file (the Docker image uses `/app/data/message-sandbox.sqlite`) |

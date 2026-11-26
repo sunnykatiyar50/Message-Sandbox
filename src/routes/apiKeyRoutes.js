@@ -1,6 +1,6 @@
 const express = require('express');
 const { SCOPES } = require('../utils/apiKeys');
-const { logToFile } = require('../utils/logger');
+const { record } = require('../utils/activity');
 const { parseRules, describeRule } = require('../utils/recipients');
 
 const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$/;
@@ -20,6 +20,9 @@ function parseId(value) {
 
 // Managing API keys from the dashboard. Admin only (dashboard session or ADMIN_TOKEN); API keys
 // themselves can never list, create, reveal or revoke keys.
+// Who made the request, for the audit trail: the signed-in dashboard user, or null for the admin token
+const actorOf = req => (req.auth && req.auth.username) || (req.auth && req.auth.method === 'bearer' ? 'admin token' : null);
+
 function createApiKeyRoutes({ apiKeyModel, auth, config }) {
     const router = express.Router();
     router.use(auth.requireAdmin);
@@ -56,7 +59,7 @@ function createApiKeyRoutes({ apiKeyModel, auth, config }) {
         if (Object.keys(errors).length) return res.status(400).json({ error: 'Validation failed', details: errors });
 
         const { key, secret } = await apiKeyModel.create({ name, scope, allowedRecipients });
-        logToFile(`API key created: "${name}" (${scope}${allowedRecipients.length ? `, limited to ${allowedRecipients.length} recipient rule(s)` : ''}) from ${req.ip}`);
+        record({ category: 'keys', ip: req.ip, actor: actorOf(req), message: `API key created: "${name}" (${scope}${allowedRecipients.length ? `, limited to ${allowedRecipients.length} recipient rule(s)` : ''}) from ${req.ip}` });
         res.status(201).json({ key, secret });
     });
 
@@ -69,7 +72,7 @@ function createApiKeyRoutes({ apiKeyModel, auth, config }) {
         const result = id && (await apiKeyModel.rename(id, name));
         if (!result) return res.status(404).json({ error: 'Key not found' });
         if (result.revoked) return res.status(409).json({ error: 'A revoked key cannot be renamed' });
-        if (result.previousName !== name) logToFile(`API key renamed: "${result.previousName}" -> "${name}" from ${req.ip}`);
+        if (result.previousName !== name) record({ category: 'keys', ip: req.ip, actor: actorOf(req), message: `API key renamed: "${result.previousName}" -> "${name}" from ${req.ip}` });
         res.json({ key: result.key });
     });
 
@@ -85,7 +88,7 @@ function createApiKeyRoutes({ apiKeyModel, auth, config }) {
                 error: 'This key can no longer be shown because SESSION_SECRET has changed. It still works; create a new key if you need to copy it.',
             });
         }
-        logToFile(`API key revealed: "${found.key.name}" from ${req.ip}`);
+        record({ category: 'keys', ip: req.ip, actor: actorOf(req), message: `API key revealed: "${found.key.name}" from ${req.ip}` });
         res.json({ secret: found.secret });
     });
 
@@ -96,12 +99,12 @@ function createApiKeyRoutes({ apiKeyModel, auth, config }) {
             const removed = id && (await apiKeyModel.remove(id));
             if (!removed) return res.status(404).json({ error: 'Key not found' });
             if (!removed.deleted) return res.status(409).json({ error: 'Revoke this key before deleting it' });
-            logToFile(`API key deleted: "${removed.key.name}" from ${req.ip}`);
+            record({ category: 'keys', ip: req.ip, actor: actorOf(req), message: `API key deleted: "${removed.key.name}" from ${req.ip}` });
             return res.json({ deleted: true });
         }
         const result = id && (await apiKeyModel.revoke(id));
         if (!result) return res.status(404).json({ error: 'Key not found' });
-        if (result.changed) logToFile(`API key revoked: "${result.key.name}" from ${req.ip}`);
+        if (result.changed) record({ category: 'keys', ip: req.ip, actor: actorOf(req), message: `API key revoked: "${result.key.name}" from ${req.ip}` });
         res.json({ key: result.key });
     });
 

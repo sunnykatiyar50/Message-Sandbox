@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { createSessionToken, verifySessionToken, safeEqual, parseCookies } = require('../utils/session');
-const { logToFile } = require('../utils/logger');
+const { record } = require('../utils/activity');
 
 const SESSION_COOKIE = 'ms_session';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -12,8 +12,12 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 //   Read key (created in the dashboard)                                  read emails and SMS (GET /api/emails, /api/sms, ...)
 //   Read key limited to some recipients                                  read only the emails sent to them; no SMS
 // Email itself arrives over SMTP, which has its own optional credentials (SMTP_USERNAME / SMTP_PASSWORD).
+// The path of a request for the audit trail, without a trailing slash ("/api/emails/" -> "/api/emails")
+const requestPath = req => `${req.baseUrl}${req.path}`.replace(/(.)\/$/, '$1');
+
 function createAuth(config, { apiKeyModel } = {}) {
-    const ttlMs = config.sessionTtlHours * 60 * 60 * 1000;
+    // Read at sign-in, so a changed SESSION_TTL_HOURS applies to the next session
+    const ttlMs = () => config.sessionTtlHours * 60 * 60 * 1000;
 
     const accounts = [
         { username: config.adminUsername, password: config.adminPassword, role: 'admin' },
@@ -93,9 +97,12 @@ function createAuth(config, { apiKeyModel } = {}) {
             const key = await findApiKey(req);
             if (!key) {
                 const presented = req.get('x-api-key') || bearerToken(req);
+                // Throttled: a client with a wrong key tends to retry in a loop. Only signed-in requests carry no key at all.
+                record({ level: presented ? 'warn' : 'info', category: 'auth', message: `${presented ? 'Invalid or revoked API key' : 'Request without credentials'} for ${req.method} ${requestPath(req)} from ${req.ip}`, ip: req.ip, throttleMs: 60 * 1000 });
                 return res.status(401).json({ error: presented ? 'Invalid or revoked API key' : 'Missing API key' });
             }
             if (key.scope !== scope) {
+                record({ level: 'warn', category: 'auth', message: `API key "${key.name}" (${key.scope}) used where a ${scope} key is needed: ${req.method} ${requestPath(req)} from ${req.ip}`, ip: req.ip, actor: key.name, throttleMs: 60 * 1000 });
                 return res.status(403).json({ error: `This key can't be used here (needs a ${scope} key)` });
             }
             // recipientScope: the inboxes this key is limited to (rules from utils/recipients.js), or null for all
@@ -142,16 +149,16 @@ function createAuth(config, { apiKeyModel } = {}) {
             if (userOk && passOk && !match) match = account;
         }
         if (!match) {
-            logToFile(`Failed dashboard login from ${req.ip}`);
+            record({ level: 'warn', category: 'auth', message: `Failed dashboard login from ${req.ip}`, ip: req.ip, throttleMs: 30 * 1000 });
             return res.status(401).json({ error: 'Incorrect username or password' });
         }
-        const token = createSessionToken(config.sessionSecret, ttlMs, {
+        const token = createSessionToken(config.sessionSecret, ttlMs(), {
             u: match.username,
             r: match.role,
             p: passwordFingerprint(match.password),
         });
-        res.cookie(SESSION_COOKIE, token, { ...cookieOptions(req), maxAge: ttlMs });
-        logToFile(`Dashboard login: "${match.username}" (${match.role}) from ${req.ip}`);
+        res.cookie(SESSION_COOKIE, token, { ...cookieOptions(req), maxAge: ttlMs() });
+        record({ category: 'auth', message: `Dashboard login: "${match.username}" (${match.role}) from ${req.ip}`, ip: req.ip, actor: match.username });
         res.json({ success: true, role: match.role });
     }
 

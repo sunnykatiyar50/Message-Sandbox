@@ -84,6 +84,28 @@ async function connect() {
     `);
     await pool.query('ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS allowed_recipients TEXT');
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id SERIAL PRIMARY KEY,
+            timestamp TIMESTAMPTZ NOT NULL,
+            level VARCHAR(8) NOT NULL,
+            category VARCHAR(16) NOT NULL,
+            message TEXT NOT NULL,
+            ip VARCHAR(64),
+            actor VARCHAR(64)
+        )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log (timestamp)');
+
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+            name VARCHAR(64) PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            updated_by VARCHAR(64)
+        )
+    `);
+
     return {
         dialect: 'postgres',
         all: async (sql, params = []) => (await pool.query(toPgPlaceholders(sql), params)).rows,

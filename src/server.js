@@ -7,14 +7,16 @@ const createEmailRoutes = require('./routes/emailRoutes');
 const createSmsRoutes = require('./routes/smsRoutes');
 const EventsController = require('./controllers/eventsController');
 const createApiKeyRoutes = require('./routes/apiKeyRoutes');
-const { logToFile } = require('./utils/logger');
+const createActivityRoutes = require('./routes/activityRoutes');
+const createSettingsRoutes = require('./routes/settingsRoutes');
+const { record, rateLimitHandler } = require('./utils/activity');
 const { Metrics } = require('./utils/metrics');
 
 const viewsDir = path.join(__dirname, 'views');
 
 // Builds the Express app. Kept separate from app.js so tests can create it with their own config and database.
 // smsModel / ingestSms are optional only so a test can build an app for one channel
-function createApp({ config, emailModel, smsModel = null, apiKeyModel, ingest, ingestSms = null, events, metrics = new Metrics() }) {
+function createApp({ config, emailModel, smsModel = null, apiKeyModel, activityModel = null, settings = null, ingest, ingestSms = null, events, metrics = new Metrics() }) {
     const app = express();
     const auth = createAuth(config, { apiKeyModel });
 
@@ -66,6 +68,7 @@ function createApp({ config, emailModel, smsModel = null, apiKeyModel, ingest, i
         legacyHeaders: false,
         skipSuccessfulRequests: true,
         message: { error: 'Too many login attempts, try again later.' },
+        handler: rateLimitHandler('dashboard login'),
     });
     app.post('/auth/login', loginLimiter, auth.login);
     app.post('/auth/logout', auth.logout);
@@ -90,6 +93,8 @@ function createApp({ config, emailModel, smsModel = null, apiKeyModel, ingest, i
     app.use('/api/emails', createEmailRoutes({ emailModel, ingest, events, auth, config }));
     if (smsModel) app.use('/api/sms', createSmsRoutes({ smsModel, ingestSms, events, auth, config }));
     app.use('/api/keys', createApiKeyRoutes({ apiKeyModel, auth, config }));
+    if (activityModel) app.use('/api/activity', createActivityRoutes({ activityModel, auth, config }));
+    if (settings) app.use('/api/settings', createSettingsRoutes({ settings, auth }));
     // Prometheus metrics: the same access as reading emails (a Read key works as a bearer token for the scraper)
     app.get('/metrics', auth.requireRead, async (req, res) => {
         if (!config.metricsEnabled) return res.status(404).json({ error: 'Not found' });
@@ -115,7 +120,7 @@ function createApp({ config, emailModel, smsModel = null, apiKeyModel, ingest, i
     app.use((err, req, res, next) => {
         const status = err.status || err.statusCode || 500;
         if (status >= 500) {
-            logToFile(`Unhandled error on ${req.method} ${req.path}: ${err.stack || err}`);
+            record({ level: 'error', category: 'system', message: `Unhandled error on ${req.method} ${req.path}: ${err.stack || err}`, ip: req.ip });
             return res.status(500).json({ error: 'Internal server error' });
         }
         res.status(status).json({ error: err.type === 'entity.too.large' ? 'Request body too large' : 'Bad request' });
