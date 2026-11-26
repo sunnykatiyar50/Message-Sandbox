@@ -388,6 +388,22 @@ body.sidebar-collapsed .sidebar-toggle {
     border-bottom: 1px solid #1f2937;
 }
 
+/* Logo and name together link to the Emails page */
+.brand-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+    border-radius: 8px;
+}
+
+.brand-link:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+}
+
 .brand-text {
     display: flex;
     flex-direction: column;
@@ -2015,9 +2031,17 @@ body.login-page {
 }
 
 /* Unread messages: bold, with a dot that also toggles the read state */
+/* The dot lives in the row's left gutter, so every line of text (sender, subject, snippet)
+   starts at the same place whether or not the dot is visible */
+.message-row:has(.read-dot) {
+    position: relative;
+    padding-left: 26px;
+}
+
 .read-dot {
-    flex: none;
-    align-self: center;
+    position: absolute;
+    left: 9px;
+    top: 13px;
     width: 10px;
     height: 10px;
     padding: 0;
@@ -2700,10 +2724,49 @@ body.role-viewer .admin-only {
 
 /* ===== Settings page ===== */
 /* Keep the content in a readable column instead of stretching name and value to opposite edges */
+/* Header, notices and groups share one explicit width, so the title row and the body line up */
 #viewSettings > * {
-    max-width: 920px;
+    width: min(100%, 1040px);
     margin-left: auto;
     margin-right: auto;
+}
+
+#viewSettings > .view-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px 24px;
+    padding: 4px 0 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+#viewSettings .view-title {
+    display: block;
+}
+
+#viewSettings .view-title h1 {
+    margin: 0 0 4px;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+#viewSettings .view-title .muted {
+    display: block;
+    max-width: 62ch;
+    font-size: 13.5px;
+    line-height: 1.5;
+}
+
+#viewSettings .view-header .toolbar {
+    flex-wrap: nowrap;
+}
+
+@media (max-width: 700px) {
+    #viewSettings > .view-header {
+        grid-template-columns: 1fr;
+    }
 }
 
 .settings-group {
