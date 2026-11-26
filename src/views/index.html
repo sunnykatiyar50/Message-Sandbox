@@ -21,7 +21,10 @@
             <span class="brand-mark small">
                 <svg viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
             </span>
-            <span class="label brand-name">Message Sandbox</span>
+            <span class="label brand-text">
+                <span class="brand-name">Message Sandbox</span>
+                <span id="appVersion" class="brand-version"></span>
+            </span>
             <!-- Collapses the sidebar to icons; when collapsed it takes the logo's place as the expand button -->
             <button type="button" id="collapseButton" class="sidebar-toggle" title="Collapse sidebar"
                     aria-label="Collapse sidebar" aria-expanded="true" aria-controls="sidebar">
@@ -133,6 +136,10 @@
                         <label class="check-label admin-only"><input type="checkbox" id="selectAllCheckbox" /> Select all</label>
                         <span id="selectionInfo" class="muted"></span>
                         <span class="spacer"></span>
+                        <label class="check-label" title="Show only emails that have not been read"><input type="checkbox" id="unreadOnly" /> Unread only</label>
+                        <button id="markReadButton" type="button" class="ghost" disabled title="Mark the selected emails as read">Mark read</button>
+                        <button id="markUnreadButton" type="button" class="ghost" disabled title="Mark the selected emails as unread">Mark unread</button>
+                        <button id="markAllReadButton" type="button" class="ghost" title="Mark every email matching the current filters as read">Mark all read</button>
                         <button id="exportSelectedButton" type="button" class="ghost" disabled title="Download the selected emails as a zip of .eml files">Export selected</button>
                         <button id="deleteSelectedButton" type="button" class="danger-ghost admin-only" disabled>Delete selected</button>
                     </div>
@@ -210,6 +217,10 @@
                         <label class="check-label admin-only"><input type="checkbox" id="smsSelectAll" /> Select all</label>
                         <span id="smsSelectionInfo" class="muted"></span>
                         <span class="spacer"></span>
+                        <label class="check-label" title="Show only messages that have not been read"><input type="checkbox" id="smsUnreadOnly" /> Unread only</label>
+                        <button id="smsMarkRead" type="button" class="ghost" disabled title="Mark the selected messages as read">Mark read</button>
+                        <button id="smsMarkUnread" type="button" class="ghost" disabled title="Mark the selected messages as unread">Mark unread</button>
+                        <button id="smsMarkAllRead" type="button" class="ghost" title="Mark every message matching the current filters as read">Mark all read</button>
                         <button id="smsDeleteSelected" type="button" class="danger-ghost admin-only" disabled>Delete selected</button>
                     </div>
                     <ul id="smsList" class="message-list"></ul>
@@ -394,7 +405,7 @@
             <header class="view-header">
                 <div class="view-title">
                     <h1>API keys</h1>
-                    <span class="muted">Send keys let your apps submit SMS messages. Read keys let your tests list emails and SMS and read verification codes and links; a Read key can be limited to some email inboxes. Email itself arrives over SMTP, no key needed.</span>
+                    <span class="muted">A key has one job. SMS keys let your apps submit SMS messages. Email keys let them send mail over SMTP: the key's name is the username and the key is the password. Read keys let your tests list emails and SMS and read verification codes and links; a Read key can be limited to some email inboxes.</span>
                 </div>
                 <button type="button" id="newKeyButton" class="primary">New key</button>
             </header>
@@ -409,7 +420,8 @@
                     <label for="keyScopeInput">Type</label>
                     <select id="keyScopeInput">
                         <option value="read">Read: list emails and SMS, read codes and links</option>
-                        <option value="send">Send: submit SMS (POST /api/sms)</option>
+                        <option value="send">SMS: submit SMS (POST /api/sms)</option>
+                        <option value="email">Email: send mail over SMTP (name = username, key = password)</option>
                     </select>
                 </div>
                 <div id="keyRecipientsField" class="field">
@@ -432,6 +444,7 @@
                     <code id="newKeySecret"></code>
                     <button type="button" id="copyNewKey" class="primary small">Copy key</button>
                 </div>
+                <p id="newKeyNote" class="hint hidden"></p>
                 <div class="code-header">
                     <h4>Try it</h4>
                     <button type="button" class="copy-button" data-copy="newKeyExample">Copy</button>
@@ -446,7 +459,7 @@
                     </thead>
                     <tbody id="keysBody"></tbody>
                 </table>
-                <p id="keysEmpty" class="empty-state hidden">No API keys yet. Create a Send key so an app can submit SMS, or a Read key so your tests can read messages.</p>
+                <p id="keysEmpty" class="empty-state hidden">No API keys yet. Create an SMS key so an app can submit SMS, an Email key so it can send mail over SMTP, or a Read key so your tests can read messages.</p>
             </div>
             <p id="keysFootnote" class="hint"></p>
         </section>
@@ -589,7 +602,7 @@
                                 <div><dt>Port</dt><dd><code id="qsSmtpPort"></code><button type="button" class="copy-button" data-copy="qsSmtpPort">Copy</button></dd></div>
                                 <div><dt>Encryption</dt><dd><code id="qsSmtpSecurity"></code></dd></div>
                                 <div id="qsSmtpUserRow"><dt>Username</dt><dd><code id="qsSmtpUser"></code><button type="button" class="copy-button" data-copy="qsSmtpUser">Copy</button></dd></div>
-                                <div id="qsSmtpPassRow"><dt>Password</dt><dd><code>SMTP_PASSWORD from the server's .env</code></dd></div>
+                                <div id="qsSmtpPassRow"><dt>Password</dt><dd><code id="qsSmtpPass">SMTP_PASSWORD from the server's .env</code></dd></div>
                             </dl>
                             <p id="qsSmtpNote" class="hint"></p>
                             <pre id="qsMailAll" class="hidden"></pre>
@@ -612,8 +625,8 @@
                         <h4>Headers</h4>
                         <table class="ref-table">
                             <tr><th>Content-Type</th><td><code>application/json</code></td></tr>
-                            <tr><th>X-API-Key</th><td>A <b>Send</b> key from the <a href="#/keys">API keys</a> page</td></tr>
-                            <tr><th>Authorization</th><td>Or, for clients that can't set custom headers: <code>Bearer &lt;Send key&gt;</code></td></tr>
+                            <tr><th>X-API-Key</th><td>An <b>SMS</b> key from the <a href="#/keys">API keys</a> page</td></tr>
+                            <tr><th>Authorization</th><td>Or, for clients that can't set custom headers: <code>Bearer &lt;SMS key&gt;</code></td></tr>
                         </table>
 
                         <h4>Body</h4>
@@ -644,7 +657,8 @@
                         <table class="ref-table endpoints">
                             <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms/latest?phone=&hellip;</code><br>Newest matching message, or 404. Includes <code>code</code>: the detected OTP, or <code>null</code></td></tr>
                             <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms/wait?phone=&hellip;&amp;timeout=30</code><br>Waits for a matching message (one already stored is returned at once), or answers <code>408</code></td></tr>
-                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms</code><br><code>search</code>, <code>phone</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100)</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/sms</code><br><code>search</code>, <code>phone</code>, <code>unread=true</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100). Each message has <code>read</code>; the response has <code>unreadCount</code></td></tr>
+                            <tr><th><span class="method method-post">POST</span></th><td><code>/api/sms/read</code><br><code>{ "ids": [1, 2], "read": true }</code>, or <code>{ "matching": true, "read": false }</code> for everything matching the query filters. Dashboard users only (admin or viewer); reading through the API never marks anything read</td></tr>
                             <tr><th><span class="method method-delete">DELETE</span></th><td><code>/api/sms/:id</code>, <code>/api/sms</code> with <code>{ "ids": [1, 2] }</code>, or <code>/api/sms?phone=&hellip;</code> to empty one number. Admin only</td></tr>
                         </table>
 
@@ -709,11 +723,12 @@
                         <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> (or <code>X-API-Key</code>) with a <b>Read</b> key from the <a href="#/keys">API keys</a> page, or <code>ADMIN_TOKEN</code> (everything, including delete). Tests can use the <code>client/</code> helper (<code>waitForCode</code>, <code>waitForLink</code>); see the README.</p>
                         <table class="ref-table endpoints">
                             <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/latest?to=…</code><br>Newest matching email with its body, or 404. Includes <code>code</code> (the detected one-time code, or <code>null</code>) and <code>links</code> (every http(s) link)</td></tr>
-                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/events</code><br>Server-Sent Events for both channels: an <code>email</code> event (the summary) per email and an <code>sms</code> event (phone masked, with its code) per SMS stored from now on. The dashboard uses it to update live</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/events</code><br>Server-Sent Events for both channels: an <code>email</code> event (the summary) per email and an <code>sms</code> event (phone masked, with its code) per SMS stored from now on, and a <code>read</code> event when someone marks messages read or unread. The dashboard uses it to update live</td></tr>
                             <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/export?ids=1,2,3</code><br>A zip of the original <code>.eml</code> files (up to 100 emails)</td></tr>
                             <tr><th><span class="method method-get">GET</span></th><td><code>/metrics</code><br>Prometheus metrics (emails received, rejections, webhook and relay results, stored emails). Same access as reading emails</td></tr>
                             <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/wait?to=…&amp;timeout=30</code><br>Waits for a matching email (one that is already stored is returned at once), or answers <code>408</code>. Same body as <code>/latest</code>; <code>timeout</code> is 1&ndash;120 seconds</td></tr>
-                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails</code><br>Summaries without bodies. Filters: <code>search</code>, <code>to</code> (exact address), <code>from</code>, <code>subject</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100)</td></tr>
+                            <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails</code><br>Summaries without bodies. Filters: <code>search</code>, <code>to</code> (exact address), <code>from</code>, <code>subject</code>, <code>unread=true</code>, <code>startDate</code>, <code>endDate</code>, <code>after</code>, <code>before</code>, <code>page</code>, <code>pageSize</code> (max 100). Each email has <code>read</code>; the response has <code>unreadCount</code></td></tr>
+                            <tr><th><span class="method method-post">POST</span></th><td><code>/api/emails/read</code><br><code>{ "ids": [1, 2], "read": true }</code>, or <code>{ "matching": true, "read": false }</code> for everything matching the query filters. Dashboard users only (admin or viewer); reading through the API never marks anything read</td></tr>
                             <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id</code><br>One email: <code>text</code>, <code>html</code>, <code>headers</code>, <code>attachments</code> (each with a download <code>url</code>), <code>code</code>, <code>links</code> and deliverability <code>checks</code></td></tr>
                             <tr><th><span class="method method-get">GET</span></th><td><code>/api/emails/:id/thread</code><br>The emails in the same conversation (<code>Message-ID</code>, <code>In-Reply-To</code>, <code>References</code>), oldest first</td></tr>
                             <tr><th><span class="method method-post">POST</span></th><td><code>/api/emails/:id/check-links</code><br>Admin. Requests each link in the email and reports its status</td></tr>

@@ -50,8 +50,10 @@ function simulate(address) {
 }
 
 // secure: TLS from the first byte (the SMTP_TLS_PORT listener); otherwise plain, with STARTTLS if there is a certificate
-function createSmtpServer({ config, ingest, secure = false, metrics = new Metrics() }) {
-    const authRequired = Boolean(config.smtpUsername);
+// apiKeyModel: Email keys can sign in (the key's name as the username, the key as the password). A login is
+// required once SMTP_USERNAME is set or an active Email key exists, and not before, so a fresh install stays open.
+function createSmtpServer({ config, ingest, secure = false, metrics = new Metrics(), apiKeyModel = null }) {
+    const authRequired = async () => Boolean(config.smtpUsername) || Boolean(apiKeyModel && (await apiKeyModel.hasEmailKeys()));
     const tls = config.smtpTlsKey && config.smtpTlsCert
         ? { key: fs.readFileSync(config.smtpTlsKey), cert: fs.readFileSync(config.smtpTlsCert) }
         : null;
@@ -61,7 +63,7 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
 
     const server = new SMTPServer({
         banner: 'Message Sandbox',
-        authOptional: !authRequired,
+        authOptional: true, // enforced in onMailFrom, because Email keys can be created and revoked while running
         allowInsecureAuth: true,
         secure,
         ...tls,
@@ -83,14 +85,36 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
             callback();
         },
 
-        onAuth(auth, session, callback) {
-            if (!authRequired) return callback(null, { user: auth.username || 'anonymous' });
-            // Evaluate both so timing doesn't reveal which one was wrong
-            const userOk = safeEqual(auth.username || '', config.smtpUsername);
-            const passOk = safeEqual(auth.password || '', config.smtpPassword);
-            if (userOk && passOk) return callback(null, { user: auth.username });
-            record({ level: 'warn', category: 'smtp', message: `SMTP login failed from ${session.remoteAddress}`, ip: session.remoteAddress, throttleMs: 30 * 1000 });
-            callback(new Error('Invalid username or password'));
+        async onAuth(auth, session, callback) {
+            try {
+                if (!(await authRequired())) return callback(null, { user: auth.username || 'anonymous' });
+                const keyName = apiKeyModel ? await apiKeyModel.authenticateSmtp(auth.username, auth.password) : null;
+                if (keyName) return callback(null, { user: keyName });
+                if (config.smtpUsername) {
+                    // Evaluate both so timing doesn't reveal which one was wrong
+                    const userOk = safeEqual(auth.username || '', config.smtpUsername);
+                    const passOk = safeEqual(auth.password || '', config.smtpPassword);
+                    if (userOk && passOk) return callback(null, { user: auth.username });
+                }
+                record({ level: 'warn', category: 'smtp', message: `SMTP login failed from ${session.remoteAddress}`, ip: session.remoteAddress, throttleMs: 30 * 1000 });
+                return callback(new Error('Invalid username or password'));
+            } catch (error) {
+                record({ level: 'error', category: 'smtp', message: `SMTP login could not be checked: ${error.message}`, ip: session.remoteAddress, throttleMs: 30 * 1000 });
+                return callback(new Error('Could not check the login, try again'));
+            }
+        },
+
+        async onMailFrom(address, session, callback) {
+            try {
+                if (!session.user && (await authRequired())) {
+                    const error = new Error('Authentication required');
+                    error.responseCode = 530;
+                    return callback(error);
+                }
+                return callback();
+            } catch {
+                return callback(failure(451, 'Temporary failure, try again later'));
+            }
         },
 
         onRcptTo(address, session, callback) {

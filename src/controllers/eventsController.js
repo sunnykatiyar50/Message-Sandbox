@@ -49,14 +49,18 @@ class EventsController {
                 // the next one will still arrive
             }
         };
+        // Someone marked messages read or unread: not message content, so every stream gets it
+        const onRead = data => send('read', data);
         // A comment line keeps proxies and browsers from closing an idle connection
         const heartbeat = setInterval(() => res.write(': keep-alive\n\n'), HEARTBEAT_MS);
         this.events.on('email', onEmail);
         this.events.on('sms', onSms);
+        this.events.on('read', onRead);
         res.on('close', () => {
             clearInterval(heartbeat);
             this.events.off('email', onEmail);
             this.events.off('sms', onSms);
+            this.events.off('read', onRead);
             this.streams -= 1;
         });
         return undefined;

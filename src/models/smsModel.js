@@ -1,6 +1,6 @@
 const { toIso } = require('../utils/time');
 
-const COLUMNS = 'id, sender, phone, message, timestamp, api_key_name';
+const COLUMNS = 'id, sender, phone, message, timestamp, api_key_name, read_at';
 
 function toMessage(row) {
     return {
@@ -10,6 +10,7 @@ function toMessage(row) {
         message: row.message,
         timestamp: toIso(row.timestamp),
         apiKeyName: row.api_key_name || null,
+        read: Boolean(row.read_at),
     };
 }
 
@@ -23,9 +24,10 @@ class SmsModel {
         this.db = db;
     }
 
-    buildFilters({ search, phone, after, before } = {}) {
+    buildFilters({ search, phone, after, before, unread } = {}) {
         const clauses = [];
         const params = [];
+        if (unread) clauses.push('read_at IS NULL');
         if (search) {
             clauses.push("(LOWER(message) LIKE ? ESCAPE '!' OR LOWER(phone) LIKE ? ESCAPE '!' OR LOWER(sender) LIKE ? ESCAPE '!')");
             const like = likeTerm(search);
@@ -59,6 +61,30 @@ class SmsModel {
             params
         );
         return { total: Number(countRow.total), messages: rows.map(toMessage) };
+    }
+
+    async unreadCount() {
+        const [row] = await this.db.all('SELECT COUNT(*) AS total FROM sms_messages WHERE read_at IS NULL');
+        return Number(row.total);
+    }
+
+    // Marks the given messages read or unread; returns how many changed. A read message keeps the time it was first read.
+    async markRead(ids, read) {
+        if (ids.length === 0) return 0;
+        return this.db.run(
+            `UPDATE sms_messages SET read_at = ? WHERE id IN (${ids.map(() => '?').join(', ')}) AND read_at IS ${read ? '' : 'NOT '}NULL`,
+            [read ? new Date() : null, ...ids]
+        );
+    }
+
+    // The same for every message matching the filters
+    async markMatching(filters, read) {
+        const { where, params } = this.buildFilters(filters);
+        const rows = await this.db.all(`SELECT id FROM sms_messages ${where}`, params);
+        const ids = rows.map(row => Number(row.id));
+        let changed = 0;
+        for (let i = 0; i < ids.length; i += 500) changed += await this.markRead(ids.slice(i, i + 500), read);
+        return changed;
     }
 
     async latest(filters) {

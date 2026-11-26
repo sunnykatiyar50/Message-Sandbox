@@ -3,7 +3,7 @@ const { visibleTo } = require('../utils/recipients');
 
 const SUMMARY_COLUMNS =
     'id, message_id, from_address, from_name, to_addresses, cc_addresses, envelope_from, envelope_to, ' +
-    'subject, snippet, size, attachment_count, smtp_user, timestamp';
+    'subject, snippet, size, attachment_count, smtp_user, timestamp, read_at';
 const FULL_COLUMNS = `${SUMMARY_COLUMNS}, text_body, html_body, headers, has_text_part`;
 
 function parseJson(value, fallback) {
@@ -32,6 +32,7 @@ function toSummary(row) {
         attachmentCount: Number(row.attachment_count),
         smtpUser: row.smtp_user || null,
         timestamp: toIso(row.timestamp),
+        read: Boolean(row.read_at),
     };
 }
 
@@ -86,9 +87,10 @@ class EmailModel {
         this.db = db;
     }
 
-    buildFilters({ search, to, from, subject, after, before, scope } = {}) {
+    buildFilters({ search, to, from, subject, after, before, scope, unread } = {}) {
         const clauses = [];
         const params = [];
+        if (unread) clauses.push('read_at IS NULL');
         const matchAny = (columns, term) => {
             clauses.push(`(${columns.map(c => `LOWER(${c}) LIKE ? ESCAPE '!'`).join(' OR ')})`);
             columns.forEach(() => params.push(likeTerm(term)));
@@ -130,6 +132,32 @@ class EmailModel {
             params
         );
         return { total: Number(countRow.total), emails: rows.map(toSummary) };
+    }
+
+    // How many emails are unread (for an API key limited to some inboxes, only those it can see)
+    async unreadCount(scope) {
+        const { where, params } = this.buildFilters({ scope, unread: true });
+        const [row] = await this.db.all(`SELECT COUNT(*) AS total FROM emails ${where}`, params);
+        return Number(row.total);
+    }
+
+    // Marks the given emails read or unread; returns how many changed. A read email keeps the time it was first read.
+    async markRead(ids, read) {
+        if (ids.length === 0) return 0;
+        return this.db.run(
+            `UPDATE emails SET read_at = ? WHERE id IN (${ids.map(() => '?').join(', ')}) AND read_at IS ${read ? '' : 'NOT '}NULL`,
+            [read ? new Date() : null, ...ids]
+        );
+    }
+
+    // The same for every email matching the filters
+    async markMatching(filters, read) {
+        const { where, params } = this.buildFilters(filters);
+        const rows = await this.db.all(`SELECT id FROM emails ${where}`, params);
+        const ids = rows.map(row => Number(row.id));
+        let changed = 0;
+        for (let i = 0; i < ids.length; i += 500) changed += await this.markRead(ids.slice(i, i + 500), read);
+        return changed;
     }
 
     // The newest matching email with its body, or null

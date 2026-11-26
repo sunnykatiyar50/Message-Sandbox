@@ -8,6 +8,17 @@ function toPgPlaceholders(sql) {
     return sql.replace(/\?/g, () => `$${++idx}`);
 }
 
+// Adds read_at (when a message was marked read; NULL is unread). Messages stored before it existed count as read.
+async function addReadAt(pool, table) {
+    const { rows } = await pool.query(
+        "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = $1 AND column_name = 'read_at'",
+        [table]
+    );
+    if (rows.length) return;
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN read_at TIMESTAMPTZ`);
+    await pool.query(`UPDATE ${table} SET read_at = NOW()`);
+}
+
 async function connect() {
     logToFile('Initializing PostgreSQL database connection...');
     const pool = new Pool({
@@ -43,6 +54,8 @@ async function connect() {
         )
     `);
     await pool.query('ALTER TABLE emails ADD COLUMN IF NOT EXISTS has_text_part SMALLINT');
+    // When messages were marked read (NULL: unread)
+    await addReadAt(pool, 'emails');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_emails_timestamp ON emails (timestamp)');
     await pool.query(`
         CREATE TABLE IF NOT EXISTS attachments (
@@ -67,6 +80,7 @@ async function connect() {
         )
     `);
     await pool.query('CREATE INDEX IF NOT EXISTS idx_sms_timestamp ON sms_messages (timestamp)');
+    await addReadAt(pool, 'sms_messages');
     await pool.query(`
         CREATE TABLE IF NOT EXISTS api_keys (
             id SERIAL PRIMARY KEY,
@@ -83,6 +97,7 @@ async function connect() {
         )
     `);
     await pool.query('ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS allowed_recipients TEXT');
+    await pool.query('ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS created_by VARCHAR(64)');
 
     await pool.query(`
         CREATE TABLE IF NOT EXISTS activity_log (

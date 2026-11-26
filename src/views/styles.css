@@ -388,6 +388,22 @@ body.sidebar-collapsed .sidebar-toggle {
     border-bottom: 1px solid #1f2937;
 }
 
+.brand-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.brand-version {
+    font-size: 11.5px;
+    color: var(--sidebar-text);
+}
+
+.brand-version:empty {
+    display: none;
+}
+
 .brand-name {
     min-width: 0;
     font-weight: 700;
@@ -728,6 +744,18 @@ body.resizing {
 
 .list-toolbar {
     border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; /* the read/unread and delete buttons drop to a second line in a narrow list */
+    row-gap: 6px;
+}
+
+.list-toolbar .check-label {
+    white-space: nowrap;
+}
+
+.list-toolbar button {
+    padding: 4px 9px;
+    font-size: 12.5px;
+    white-space: nowrap;
 }
 
 .list-footer {
@@ -1817,6 +1845,43 @@ body.login-page {
 .scope-read {
     background: var(--sev-info-bg);
     color: var(--sev-info-fg);
+}
+
+.scope-email {
+    background: var(--sev-warning-bg);
+    color: var(--sev-warning-fg);
+}
+
+/* Unread messages: bold, with a dot that also toggles the read state */
+.read-dot {
+    flex: none;
+    align-self: center;
+    width: 10px;
+    height: 10px;
+    padding: 0;
+    border: 1.5px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+}
+
+.message-row.unread .read-dot {
+    background: var(--blue);
+    border-color: var(--blue);
+}
+
+.message-row:not(.unread) .read-dot:hover {
+    border-color: var(--muted);
+}
+
+.message-row.unread .row-sender,
+.message-row.unread .row-subject {
+    font-weight: 700;
+}
+
+.message-row.unread .row-time {
+    color: var(--text);
+    font-weight: 600;
 }
 
 @media (max-width: 900px) {

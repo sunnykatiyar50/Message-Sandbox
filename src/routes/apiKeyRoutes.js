@@ -55,10 +55,10 @@ function createApiKeyRoutes({ apiKeyModel, auth, config }) {
         }
         const scope = body.scope === undefined ? 'read' : body.scope;
         if (!SCOPES.includes(scope)) errors.scope = `must be one of ${SCOPES.join(', ')}`;
-        else if (scope !== 'read' && allowedRecipients.length) errors.allowedRecipients = 'can only limit a Read key (Send keys submit SMS, which has no inboxes)';
+        else if (scope !== 'read' && allowedRecipients.length) errors.allowedRecipients = 'can only limit a Read key (Send keys submit SMS, Email keys send mail)';
         if (Object.keys(errors).length) return res.status(400).json({ error: 'Validation failed', details: errors });
 
-        const { key, secret } = await apiKeyModel.create({ name, scope, allowedRecipients });
+        const { key, secret } = await apiKeyModel.create({ name, scope, allowedRecipients, createdBy: (req.auth && req.auth.username) || null });
         record({ category: 'keys', ip: req.ip, actor: actorOf(req), message: `API key created: "${name}" (${scope}${allowedRecipients.length ? `, limited to ${allowedRecipients.length} recipient rule(s)` : ''}) from ${req.ip}` });
         res.status(201).json({ key, secret });
     });

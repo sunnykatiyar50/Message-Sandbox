@@ -7,6 +7,7 @@ const {
     validateSmsQuery,
     validateIdParam,
     validateSmsDelete,
+    validateMarkRead,
 } = require('../middleware/validate');
 
 function createSmsRoutes({ smsModel, ingestSms, events, auth, config }) {
@@ -29,6 +30,9 @@ function createSmsRoutes({ smsModel, ingestSms, events, auth, config }) {
     router.get('/', auth.requireRead, auth.forbidRecipientLimit, validateSmsQuery, (req, res) => controller.getMessages(req, res));
     router.get('/latest', auth.requireRead, auth.forbidRecipientLimit, validateSmsQuery, (req, res) => controller.getLatestMessage(req, res));
     router.get('/wait', auth.requireRead, auth.forbidRecipientLimit, validateSmsQuery, (req, res) => controller.waitForMessage(req, res));
+
+    // Read state is shared and belongs to the dashboard: admins and viewers, not API keys
+    router.post('/read', auth.requireDashboardUser, validateMarkRead(validateSmsQuery), (req, res) => controller.markRead(req, res));
 
     // Deleting: admin only, by id or for one phone number (?phone=)
     router.delete('/', auth.requireAdmin, validateSmsDelete, (req, res) => controller.deleteMessages(req, res));

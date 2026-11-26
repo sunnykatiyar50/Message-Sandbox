@@ -39,13 +39,8 @@ async function smsLoad(page = 1, pageSizeParam = smsPageSize, search = '', start
     saveSetting('ms_sms_query', JSON.stringify({ page, pageSize: pageSizeParam, search, startDate, endDate }));
     try {
         const params = new URLSearchParams({ page, pageSize: pageSizeParam });
-        if (search) params.set('search', search);
-        if (startDate) params.set('after', localDayToIso(startDate));
-        if (endDate) params.set('before', localDayToIso(endDate, true));
-        // Relative ranges are recalculated on every load, so the window keeps sliding
-        if (!startDate && !endDate && RANGES[timeRange]) {
-            params.set('after', new Date(Date.now() - RANGES[timeRange].ms).toISOString());
-        }
+        for (const [name, value] of smsFilterParams({ search, startDate, endDate })) params.set(name, value);
+        if ($('smsUnreadOnly').checked) params.set('unread', 'true');
 
         const response = await apiFetch(`/api/sms?${params.toString()}`);
         if (!response.ok) throw new Error(response.statusText);
@@ -55,7 +50,7 @@ async function smsLoad(page = 1, pageSizeParam = smsPageSize, search = '', start
         smsTotalPages = data.totalPages || 1;
         const filtered = Boolean(search || startDate || endDate || RANGES[timeRange]);
         $('smsInfo').textContent = `${data.totalMessages} ${filtered ? 'matching' : 'total'}`;
-        if (!filtered) $('smsNavCount').textContent = data.totalMessages || '';
+        setNavUnread('smsNavCount', data.unreadCount);
     } catch (error) {
         smsMessages = [];
         smsTotalPages = 1;
@@ -63,6 +58,19 @@ async function smsLoad(page = 1, pageSizeParam = smsPageSize, search = '', start
     }
     smsRender();
     smsUpdatePagination();
+}
+
+// The search and time window as query parameters (shared by the list and "Mark all read")
+function smsFilterParams({ search, startDate, endDate }) {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (startDate) params.set('after', localDayToIso(startDate));
+    if (endDate) params.set('before', localDayToIso(endDate, true));
+    // Relative ranges are recalculated on every load, so the window keeps sliding
+    if (!startDate && !endDate && RANGES[timeRange]) {
+        params.set('after', new Date(Date.now() - RANGES[timeRange].ms).toISOString());
+    }
+    return params;
 }
 
 async function smsReload() {
@@ -77,7 +85,7 @@ function smsRender() {
     smsUpdateSelectionInfo();
 
     if (smsMessages.length === 0) {
-        const filtered = Object.values(smsCurrentFilters()).some(Boolean) || Boolean(RANGES[timeRange]);
+        const filtered = Object.values(smsCurrentFilters()).some(Boolean) || Boolean(RANGES[timeRange]) || $('smsUnreadOnly').checked;
         list.appendChild(el('li', 'empty-state', filtered ? 'No messages match these filters.' : 'No messages yet. Send one from Send test, or call the API.'));
         smsShowDetails(null);
         return;
@@ -103,6 +111,7 @@ function smsRender() {
         checkWrap.appendChild(check);
 
         const top = el('div', 'row-top');
+        top.appendChild(readDot(() => smsSetRead([msg.id], !msg.read)));
         top.appendChild(el('span', 'row-sender', msg.sender || 'No sender'));
         top.appendChild(el('span', 'row-recipient mono', msg.phone || ''));
         top.appendChild(el('span', 'spacer'));
@@ -117,6 +126,7 @@ function smsRender() {
 
         li.appendChild(checkWrap);
         li.appendChild(body);
+        updateRowRead(li, msg.read);
         list.appendChild(li);
     }
     smsFresh.clear();
@@ -126,7 +136,33 @@ function smsRender() {
 function smsSelect(id) {
     smsSelectedId = id;
     document.querySelectorAll('#smsList .message-row').forEach(row => row.classList.toggle('selected', row.dataset.id === String(id)));
-    smsShowDetails(smsMessages.find(m => m.id === id));
+    const message = smsMessages.find(m => m.id === id);
+    smsShowDetails(message);
+    // Opening a message reads it (the one shown automatically when a list loads does not count)
+    if (message && !message.read) smsSetRead([id], true);
+}
+
+async function smsSetRead(ids, read) {
+    try {
+        const result = await postRead('/api/sms', { ids, read });
+        setNavUnread('smsNavCount', result.unreadCount);
+        for (const msg of smsMessages) if (ids.includes(msg.id)) msg.read = read;
+        document.querySelectorAll('#smsList .message-row').forEach(row => {
+            if (ids.includes(Number(row.dataset.id))) updateRowRead(row, read);
+        });
+    } catch (error) {
+        alert(`Could not update the messages: ${error.message}`);
+    }
+}
+
+async function smsMarkAllRead() {
+    try {
+        const result = await postRead('/api/sms', { matching: true, read: true }, smsFilterParams(smsCurrentFilters()).toString());
+        setNavUnread('smsNavCount', result.unreadCount);
+        await smsReload();
+    } catch (error) {
+        alert(`Could not update the messages: ${error.message}`);
+    }
 }
 
 function smsShowDetails(message) {
@@ -212,6 +248,7 @@ async function smsResetFilters() {
     $('smsSearchInput').value = '';
     $('smsStartDate').value = '';
     $('smsEndDate').value = '';
+    $('smsUnreadOnly').checked = false;
     timeRange = 'all';
     renderRange();
     await smsFilter();
@@ -254,6 +291,8 @@ function smsUpdateSelectionInfo() {
     const count = smsSelectedIds().length;
     $('smsSelectionInfo').textContent = count ? `${count} selected` : '';
     $('smsDeleteSelected').disabled = count === 0;
+    $('smsMarkRead').disabled = count === 0;
+    $('smsMarkUnread').disabled = count === 0;
     $('smsSelectAll').checked = count > 0 && count === smsMessages.length;
 }
 
@@ -514,6 +553,10 @@ window.addEventListener('DOMContentLoaded', () => {
     $('smsPageSize').addEventListener('change', smsChangePageSize);
     $('smsSelectAll').addEventListener('change', event => smsToggleSelectAll(event.target.checked));
     $('smsDeleteSelected').addEventListener('click', smsDeleteSelected);
+    $('smsMarkRead').addEventListener('click', () => smsSetRead(smsSelectedIds(), true));
+    $('smsMarkUnread').addEventListener('click', () => smsSetRead(smsSelectedIds(), false));
+    $('smsMarkAllRead').addEventListener('click', smsMarkAllRead);
+    $('smsUnreadOnly').addEventListener('change', smsFilter);
     // Always copies the original text, whatever view is showing
     $('smsCopyMessage').addEventListener('click', event => {
         const message = smsMessages.find(m => m.id === smsSelectedId);

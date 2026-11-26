@@ -41,6 +41,7 @@ class SmsController {
             messages: messages.map(m => this.present(m, unmask)),
             totalPages: Math.max(1, Math.ceil(total / pageSize)),
             totalMessages: total,
+            unreadCount: await this.smsModel.unreadCount(),
             currentPage: page,
         });
     }
@@ -67,6 +68,14 @@ class SmsController {
         if (result === CLIENT_GONE) return undefined;
         if (!result) return res.status(408).json({ error: `No matching message arrived within ${timeout} seconds.` });
         return res.status(200).json(this.present(result, unmask));
+    }
+
+    // Mark messages read or unread, by id or everything matching the filters; other open dashboards are told
+    async markRead(req, res) {
+        const { ids, filters, read } = req.validated;
+        const changed = filters ? await this.smsModel.markMatching(filters, read) : await this.smsModel.markRead(ids, read);
+        if (changed) this.events.emit('read', { kind: 'sms', read, ids: filters ? null : ids });
+        res.status(200).json({ changed, unreadCount: await this.smsModel.unreadCount() });
     }
 
     async deleteMessages(req, res) {

@@ -96,6 +96,7 @@ function validateListQuery(req, res, next) {
             to: str('to').slice(0, 320),
             from: str('from').slice(0, 320),
             subject: str('subject').slice(0, 200),
+            unread: str('unread') === 'true',
             after,
             before,
         },
@@ -115,6 +116,7 @@ function validateSmsQuery(req, res, next) {
         filters: {
             search: str('search').slice(0, 200),
             phone: str('phone') ? normalizePhone(str('phone')) : '',
+            unread: str('unread') === 'true',
             after,
             before,
         },
@@ -223,6 +225,25 @@ function validateIdList(req, res, next) {
     next();
 }
 
+// POST /api/emails/read and /api/sms/read: { "read": true|false } with either "ids": [...] or "matching": true
+// (every message matching the filters in the query string, e.g. ?unread=true&search=...)
+function validateMarkRead(queryValidator) {
+    return (req, res, next) => {
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        if (typeof body.read !== 'boolean') return badRequest(res, { read: 'must be true or false' });
+        if (body.matching === true) {
+            return queryValidator(req, res, () => {
+                req.validated = { read: body.read, filters: req.listQuery.filters };
+                next();
+            });
+        }
+        return validateIdList(req, res, () => {
+            req.validated = { ...req.validated, read: body.read };
+            next();
+        });
+    };
+}
+
 // DELETE /api/emails: either { "ids": [...] } in the body, or a recipient in the query (?to=user@example.com,
 // optionally narrowed by the other filters) to empty one inbox. Never "delete everything": without ids,
 // a `to` address is required.
@@ -307,6 +328,7 @@ module.exports = {
     validateIdParam,
     validateIdList,
     validateBulkDelete,
+    validateMarkRead,
     validateAttachmentParams,
     validateExportQuery,
     validateTestEmail,

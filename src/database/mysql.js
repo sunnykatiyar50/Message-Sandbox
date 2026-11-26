@@ -2,6 +2,18 @@ const mysql = require('mysql2/promise');
 const { logToFile } = require('../utils/logger');
 const { sslOptions } = require('./ssl');
 
+// Adds read_at (when a message was marked read; NULL is unread). Messages stored before it existed count as read.
+async function addReadAt(pool, table) {
+    const [columns] = await pool.query(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = 'read_at'`,
+        [table]
+    );
+    if (columns.length) return;
+    await pool.query(`ALTER TABLE ${table} ADD COLUMN read_at DATETIME(3) NULL`);
+    await pool.query(`UPDATE ${table} SET read_at = UTC_TIMESTAMP(3)`);
+}
+
 async function connect() {
     logToFile('Initializing MySQL database connection...');
     const pool = mysql.createPool({
@@ -45,6 +57,7 @@ async function connect() {
     if (textPartColumn.length === 0) {
         await pool.query('ALTER TABLE emails ADD COLUMN has_text_part TINYINT');
     }
+    await addReadAt(pool, 'emails');
     await pool.query(`
         CREATE TABLE IF NOT EXISTS attachments (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -68,6 +81,7 @@ async function connect() {
             INDEX idx_sms_timestamp (timestamp)
         )
     `);
+    await addReadAt(pool, 'sms_messages');
     await pool.query(`
         CREATE TABLE IF NOT EXISTS api_keys (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -89,6 +103,13 @@ async function connect() {
     );
     if (recipientsColumn.length === 0) {
         await pool.query('ALTER TABLE api_keys ADD COLUMN allowed_recipients TEXT');
+    }
+    const [createdByColumn] = await pool.query(
+        `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'api_keys' AND COLUMN_NAME = 'created_by'`
+    );
+    if (createdByColumn.length === 0) {
+        await pool.query('ALTER TABLE api_keys ADD COLUMN created_by VARCHAR(64)');
     }
     await pool.query(`
         CREATE TABLE IF NOT EXISTS activity_log (

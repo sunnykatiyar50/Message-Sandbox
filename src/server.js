@@ -75,10 +75,12 @@ function createApp({ config, emailModel, smsModel = null, apiKeyModel, activityM
     app.get('/auth/status', auth.status);
 
     // Where to point SMTP clients; the dashboard uses it for its setup examples
-    app.get('/api/info', auth.requireRead, (req, res) => {
+    app.get('/api/info', auth.requireRead, async (req, res) => {
+        const emailKeys = Boolean(apiKeyModel) && (await apiKeyModel.hasEmailKeys());
         res.json({
             smtpPort: config.smtpPort,
-            smtpAuthRequired: Boolean(config.smtpUsername),
+            smtpAuthRequired: Boolean(config.smtpUsername) || emailKeys,
+            smtpKeyLogin: emailKeys, // an Email key is the login: its name as the username, the key as the password
             smtpStartTls: Boolean(config.smtpTlsKey),
             smtpTlsPort: config.smtpTlsPort || null,
             smtpSimulate: config.smtpSimulate,

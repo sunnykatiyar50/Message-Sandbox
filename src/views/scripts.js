@@ -251,6 +251,7 @@ async function loadSession() {
         userRole = status.role === 'viewer' ? 'viewer' : 'admin';
         const name = status.username || (status.authDisabled ? 'No sign-in' : 'admin');
         $('currentUser').textContent = userRole === 'viewer' ? `${name} (viewer)` : name;
+        $('appVersion').textContent = status.version ? `v${status.version}` : '';
         $('authWarning').classList.toggle('hidden', !status.authDisabled);
         $('logoutButton').classList.toggle('hidden', Boolean(status.authDisabled));
     } catch {
@@ -302,6 +303,93 @@ function startLiveUpdates() {
         }, 250);
     });
     liveSource.addEventListener('sms', smsOnLiveEvent);
+    // Someone else marked messages read or unread
+    liveSource.addEventListener('read', event => {
+        if (Date.now() - lastReadChange < 2000) return; // this page's own change
+        let kind = '';
+        try {
+            kind = JSON.parse(event.data).kind;
+        } catch {
+            // refresh everything below
+        }
+        refreshUnreadCounts();
+        if (kind !== 'sms' && currentView() === 'messages') reloadCurrentPage();
+        if (kind !== 'email' && currentView() === 'sms') smsReload();
+    });
+}
+
+// --- Read and unread ---
+
+let lastReadChange = 0; // when this page last changed read state itself, so its own live event is ignored
+
+const setNavUnread = (id, count) => {
+    $(id).textContent = count || '';
+};
+
+// POST /api/emails/read or /api/sms/read: { ids, read } or { matching: true, read } with the filters in the query
+async function postRead(base, body, query = '') {
+    lastReadChange = Date.now();
+    const response = await apiFetch(`${base}/read${query ? `?${query}` : ''}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || response.statusText);
+    return response.json();
+}
+
+// Both lists: bold with a dot while unread; the dot toggles the state
+function updateRowRead(row, read) {
+    row.classList.toggle('unread', !read);
+    const dot = row.querySelector('.read-dot');
+    if (!dot) return;
+    dot.title = read ? 'Mark as unread' : 'Mark as read';
+    dot.setAttribute('aria-label', dot.title);
+}
+
+function readDot(onToggle) {
+    const dot = el('button', 'read-dot');
+    dot.type = 'button';
+    dot.addEventListener('click', event => {
+        event.stopPropagation();
+        onToggle();
+    });
+    return dot;
+}
+
+// The unread counts in the sidebar, whichever view is open
+async function refreshUnreadCounts() {
+    for (const [url, badge] of [['/api/emails?pageSize=1', 'navCount'], ['/api/sms?pageSize=1', 'smsNavCount']]) {
+        try {
+            const response = await apiFetch(url);
+            if (response.ok) setNavUnread(badge, (await response.json()).unreadCount);
+        } catch {
+            // the badge keeps its last value
+        }
+    }
+}
+
+async function setEmailsRead(ids, read) {
+    try {
+        const result = await postRead('/api/emails', { ids, read });
+        setNavUnread('navCount', result.unreadCount);
+        for (const msg of messages) if (ids.includes(msg.id)) msg.read = read;
+        document.querySelectorAll('#messageList .message-row').forEach(row => {
+            if (ids.includes(Number(row.dataset.id))) updateRowRead(row, read);
+        });
+    } catch (error) {
+        alert(`Could not update the emails: ${error.message}`);
+    }
+}
+
+async function markAllEmailsRead() {
+    try {
+        const result = await postRead('/api/emails', { matching: true, read: true }, emailFilterParams(currentFilters()).toString());
+        setNavUnread('navCount', result.unreadCount);
+        await reloadCurrentPage();
+    } catch (error) {
+        alert(`Could not update the emails: ${error.message}`);
+    }
 }
 
 // --- Emails: loading and rendering ---
@@ -318,13 +406,8 @@ async function loadMessages(page = 1, pageSizeParam = pageSize, searchInput = ''
     saveSetting('ms_query_params', JSON.stringify({ page, pageSize: pageSizeParam, searchInput, startDate, endDate, timeRange }));
     try {
         const queryParams = new URLSearchParams({ page, pageSize: pageSizeParam });
-        if (searchInput) queryParams.set('search', searchInput);
-        if (startDate) queryParams.set('after', localDayToIso(startDate));
-        if (endDate) queryParams.set('before', localDayToIso(endDate, true));
-        // Relative ranges are recalculated on every load, so the window keeps sliding
-        if (!startDate && !endDate && RANGES[timeRange]) {
-            queryParams.set('after', new Date(Date.now() - RANGES[timeRange].ms).toISOString());
-        }
+        for (const [name, value] of emailFilterParams({ searchInput, startDate, endDate })) queryParams.set(name, value);
+        if ($('unreadOnly').checked) queryParams.set('unread', 'true');
 
         const response = await apiFetch(`/api/emails?${queryParams.toString()}`);
         if (!response.ok) throw new Error(response.statusText);
@@ -334,7 +417,7 @@ async function loadMessages(page = 1, pageSizeParam = pageSize, searchInput = ''
         totalPages = data.totalPages || 1;
         const filtered = Boolean(searchInput || startDate || endDate || RANGES[timeRange]);
         $('messageInfo').textContent = `${data.totalEmails} ${filtered ? 'matching' : 'total'}`;
-        if (!filtered) $('navCount').textContent = data.totalEmails || '';
+        setNavUnread('navCount', data.unreadCount);
     } catch (error) {
         messages = [];
         totalPages = 1;
@@ -342,6 +425,19 @@ async function loadMessages(page = 1, pageSizeParam = pageSize, searchInput = ''
     }
     renderMessages();
     updatePagination();
+}
+
+// The search and time window as query parameters (the same ones list, "Mark all read" and the API understand)
+function emailFilterParams({ searchInput, startDate, endDate }) {
+    const params = new URLSearchParams();
+    if (searchInput) params.set('search', searchInput);
+    if (startDate) params.set('after', localDayToIso(startDate));
+    if (endDate) params.set('before', localDayToIso(endDate, true));
+    // Relative ranges are recalculated on every load, so the window keeps sliding
+    if (!startDate && !endDate && RANGES[timeRange]) {
+        params.set('after', new Date(Date.now() - RANGES[timeRange].ms).toISOString());
+    }
+    return params;
 }
 
 async function reloadCurrentPage() {
@@ -365,7 +461,7 @@ function renderMessages() {
     updateSelectionInfo();
 
     if (messages.length === 0) {
-        const filtered = Object.values(currentFilters()).some(Boolean) || Boolean(RANGES[timeRange]);
+        const filtered = Object.values(currentFilters()).some(Boolean) || Boolean(RANGES[timeRange]) || $('unreadOnly').checked;
         list.appendChild(el('li', 'empty-state', filtered ? 'No emails match these filters.' : 'No emails yet. Send one to this server over SMTP, or use Send test.'));
         showDetails(null);
         return;
@@ -391,6 +487,7 @@ function renderMessages() {
         checkWrap.appendChild(check);
 
         const top = el('div', 'row-top');
+        top.appendChild(readDot(() => setEmailsRead([msg.id], !msg.read)));
         top.appendChild(el('span', 'row-sender', displayName(msg.from) || 'Unknown sender'));
         top.appendChild(el('span', 'row-recipient mono', recipientSummary(msg) ? `to ${recipientSummary(msg)}` : ''));
         top.appendChild(el('span', 'spacer'));
@@ -411,6 +508,7 @@ function renderMessages() {
 
         li.appendChild(checkWrap);
         li.appendChild(body);
+        updateRowRead(li, msg.read);
         list.appendChild(li);
     }
     freshIds.clear();
@@ -420,7 +518,10 @@ function renderMessages() {
 function selectMessage(id) {
     selectedId = id;
     document.querySelectorAll('.message-row').forEach(row => row.classList.toggle('selected', row.dataset.id === String(id)));
-    showDetails(messages.find(m => m.id === id));
+    const msg = messages.find(m => m.id === id);
+    showDetails(msg);
+    // Opening an email reads it (the one shown automatically when a list loads does not count)
+    if (msg && !msg.read) setEmailsRead([id], true);
 }
 
 // Full emails (bodies, headers, attachments) are fetched when selected. They never change once stored,
@@ -882,6 +983,7 @@ async function resetFilters() {
     $('searchInput').value = '';
     $('startDate').value = '';
     $('endDate').value = '';
+    $('unreadOnly').checked = false;
     timeRange = 'all';
     renderRange();
     await filterMessages();
@@ -926,6 +1028,8 @@ function updateSelectionInfo() {
     $('selectionInfo').textContent = count ? `${count} selected` : '';
     $('deleteSelectedButton').disabled = count === 0;
     $('exportSelectedButton').disabled = count === 0;
+    $('markReadButton').disabled = count === 0;
+    $('markUnreadButton').disabled = count === 0;
     $('selectAllCheckbox').checked = count > 0 && count === messages.length;
 }
 
@@ -1026,6 +1130,7 @@ const readAttachments = () =>
 let smtpInfo = {
     smtpPort: 1025,
     smtpAuthRequired: false,
+    smtpKeyLogin: false,
     smtpUsername: null,
     smtpStartTls: false,
     smtpTlsPort: null,
@@ -1076,7 +1181,7 @@ function updateEquivalentCommand() {
         ...attachedFiles.map(file => `  --attach ${quote(`@${file.name}`)} \\`),
         `  --body ${quote(text || 'Your verification code is 123456')}`,
     ];
-    if (smtpInfo.smtpAuthRequired) lines.splice(1, 0, `  --auth-user ${quote(smtpInfo.smtpUsername || 'USERNAME')} --auth-password "$SMTP_PASSWORD" \\`);
+    if (smtpInfo.smtpAuthRequired) lines.splice(1, 0, `  --auth-user ${quote(smtpInfo.smtpUsername || (smtpInfo.smtpKeyLogin ? 'EMAIL_KEY_NAME' : 'USERNAME'))} --auth-password "$SMTP_PASSWORD" \\`);
     $('equivalentCommand').textContent = lines.join('\n');
 }
 
@@ -1224,9 +1329,18 @@ async function loadKeys() {
         $('keysFootnote').textContent = `Could not load API keys: ${error.message}`;
     }
     renderKeys();
+    loadServerInfo();
 }
 
-function keyExample(scope, secret) {
+function keyExample(scope, secret, name = '') {
+    if (scope === 'email') {
+        return [
+            `swaks --server ${location.hostname}:${smtpInfo.smtpPort} \\`,
+            `  --auth-user '${name}' --auth-password '${secret}' \\`,
+            '  --from noreply@example.com --to user@example.com \\',
+            "  --header 'Subject: Hello' --body 'Your code is 123456'",
+        ].join('\n');
+    }
     if (scope === 'send') {
         return [
             `curl -X POST ${location.origin}/api/sms \\`,
@@ -1341,7 +1455,9 @@ function startRename(nameCell, id, currentName) {
     input.select();
 }
 
-function keyRow({ id, name, scope, prefix, allowedRecipients = [], messageCount = 0, lastUsedAt, createdAt, revokedAt }) {
+const KEY_TYPES = { send: 'SMS', email: 'Email', read: 'Read' };
+
+function keyRow({ id, name, scope, prefix, allowedRecipients = [], messageCount = 0, createdBy = null, lastUsedAt, createdAt, revokedAt }) {
     const rowId = id;
     const revealUrl = `/api/keys/${id}/reveal`;
     const tr = el('tr', revokedAt ? 'key-revoked' : '');
@@ -1351,14 +1467,16 @@ function keyRow({ id, name, scope, prefix, allowedRecipients = [], messageCount 
     tr.appendChild(nameCell);
 
     const typeCell = el('td');
-    typeCell.appendChild(el('span', `scope-badge scope-${scope}`, scope === 'send' ? 'Send' : 'Read'));
+    typeCell.appendChild(el('span', `scope-badge scope-${scope}`, KEY_TYPES[scope] || scope));
     tr.appendChild(typeCell);
 
-    // What the key can reach: a Send key submits SMS (counted); a Read key reads every inbox and SMS, or only
-    // the email inboxes it is limited to
+    // What the key can reach: an SMS key submits SMS and an Email key sends mail (both counted); a Read key
+    // reads every inbox and SMS, or only the email inboxes it is limited to
     const inboxCell = el('td');
     if (scope === 'send') {
-        inboxCell.appendChild(el('span', 'muted', `${messageCount} sent`));
+        inboxCell.appendChild(el('span', 'muted', `${messageCount} SMS sent`));
+    } else if (scope === 'email') {
+        inboxCell.appendChild(el('span', 'muted', `${messageCount} email${messageCount === 1 ? '' : 's'} sent`));
     } else if (allowedRecipients.length) {
         const chips = el('span', 'key-inboxes');
         allowedRecipients.forEach(rule => chips.appendChild(el('span', 'chip', rule)));
@@ -1392,7 +1510,7 @@ function keyRow({ id, name, scope, prefix, allowedRecipients = [], messageCount 
     tr.appendChild(inboxCell);
 
     tr.appendChild(el('td', 'muted', lastUsedAt ? formatMessageTime(lastUsedAt) : 'Never'));
-    tr.appendChild(el('td', 'muted', new Date(createdAt).toLocaleDateString()));
+    tr.appendChild(el('td', 'muted', `${new Date(createdAt).toLocaleDateString()}${createdBy ? ` by ${createdBy}` : ''}`));
 
     const actionCell = el('td', 'key-row-action');
     if (revokedAt) {
@@ -1475,7 +1593,11 @@ async function createKey(event) {
         showKeyForm(false);
         $('newKeyName').textContent = data.key.name;
         $('newKeySecret').textContent = data.secret;
-        $('newKeyExample').textContent = keyExample(data.key.scope, data.secret);
+        $('newKeyExample').textContent = keyExample(data.key.scope, data.secret, data.key.name);
+        $('newKeyNote').textContent = data.key.scope === 'email'
+            ? `SMTP login: username "${data.key.name}", password is this key. While an Email key exists, SMTP clients must sign in; clients without a login are refused.`
+            : '';
+        $('newKeyNote').classList.toggle('hidden', data.key.scope !== 'email');
         $('newKeyResult').classList.remove('hidden');
         await loadKeys();
     } catch (error) {
@@ -1507,9 +1629,10 @@ function renderApiReference() {
     const host = location.hostname;
     const port = smtpInfo.smtpPort;
     $('smtpAddress').textContent = `${host}:${port}`;
+    const legacyLogin = smtpInfo.smtpUsername ? `user "${smtpInfo.smtpUsername}" with the password from SMTP_PASSWORD in .env` : '';
     $('smtpAuthNote').textContent = smtpInfo.smtpAuthRequired
-        ? `Login required${smtpInfo.smtpUsername ? ` (user "${smtpInfo.smtpUsername}", password from SMTP_PASSWORD in .env)` : ''}`
-        : 'No login needed (any credentials are accepted)';
+        ? `Login required: ${[smtpInfo.smtpKeyLogin ? 'an Email key (its name as the username, the key as the password)' : '', legacyLogin].filter(Boolean).join(', or ')}`
+        : 'No login needed (any credentials are accepted) until you create an Email key on the API keys page';
     $('smtpEncryptionNote').textContent = smtpInfo.smtpStartTls
         ? `STARTTLS is available on this port${smtpInfo.smtpTlsPort ? `, and TLS from the first byte on port ${smtpInfo.smtpTlsPort}` : ''}. With a self-signed certificate your client must skip verification (Nodemailer: tls: { rejectUnauthorized: false }). Plain SMTP works too.`
         : 'None. Use plain SMTP: secure: false and no STARTTLS (for Nodemailer, ignoreTLS: true). Set SMTP_TLS_KEY and SMTP_TLS_CERT on the server to offer TLS.';
@@ -1526,7 +1649,9 @@ function renderApiReference() {
         `  port: ${port},`,
         '  secure: false,',
         ...(smtpInfo.smtpStartTls ? ['  tls: { rejectUnauthorized: false }, // self-signed certificate'] : ['  ignoreTLS: true,']),
-        ...(smtpInfo.smtpAuthRequired ? ["  auth: { user: process.env.SMTP_USERNAME, pass: process.env.SMTP_PASSWORD },"] : []),
+        ...(smtpInfo.smtpAuthRequired
+            ? [smtpInfo.smtpKeyLogin ? "  auth: { user: '<Email key name>', pass: process.env.SMTP_KEY }," : "  auth: { user: process.env.SMTP_USERNAME, pass: process.env.SMTP_PASSWORD },"]
+            : []),
         '});',
         "await transport.sendMail({ from: 'noreply@example.com', to: 'user@example.com', subject: 'Hello', text: 'Your code is 123456' });",
     ].join('\n');
@@ -1556,7 +1681,7 @@ function renderQuickSetup(base, host, port) {
     $('qsSmsAll').textContent = [
         `URL: ${base}/api/sms`,
         'Method: POST',
-        'Header: X-API-Key: <a Send key from the API keys page>',
+        'Header: X-API-Key: <an SMS key from the API keys page>',
         'Header: Content-Type: application/json',
         `Body: ${smsBody}`,
     ].join('\n');
@@ -1564,13 +1689,15 @@ function renderQuickSetup(base, host, port) {
     const security = smtpInfo.smtpStartTls
         ? `STARTTLS${smtpInfo.smtpTlsPort ? ` (or TLS on port ${smtpInfo.smtpTlsPort})` : ''}`
         : 'None (plain SMTP)';
-    const username = smtpInfo.smtpUsername || '';
+    const username = smtpInfo.smtpUsername || (smtpInfo.smtpKeyLogin ? '<the Email key name>' : '');
+    const keyOnly = smtpInfo.smtpKeyLogin && !smtpInfo.smtpUsername;
     $('qsSmtpHost').textContent = host;
     $('qsSmtpPort').textContent = String(port);
     $('qsSmtpSecurity').textContent = security;
     $('qsSmtpUserRow').classList.toggle('hidden', !smtpInfo.smtpAuthRequired || !username);
     $('qsSmtpPassRow').classList.toggle('hidden', !smtpInfo.smtpAuthRequired);
     $('qsSmtpUser').textContent = username;
+    $('qsSmtpPass').textContent = keyOnly ? 'the Email key' : smtpInfo.smtpKeyLogin ? "the Email key, or SMTP_PASSWORD from the server's .env" : "SMTP_PASSWORD from the server's .env";
     $('qsSmtpNote').textContent = smtpInfo.smtpAuthRequired
         ? ''
         : 'No login needed: any username and password (or none) is accepted.';
@@ -1579,7 +1706,7 @@ function renderQuickSetup(base, host, port) {
         `Host: ${host}`,
         `Port: ${port}`,
         `Encryption: ${security}`,
-        ...(smtpInfo.smtpAuthRequired ? [`Username: ${username || '<SMTP_USERNAME>'}`, 'Password: <SMTP_PASSWORD from the server .env>'] : ['Login: none needed']),
+        ...(smtpInfo.smtpAuthRequired ? [`Username: ${username || '<SMTP_USERNAME>'}`, keyOnly ? 'Password: <the Email key>' : 'Password: <SMTP_PASSWORD from the server .env>'] : ['Login: none needed']),
     ].join('\n');
 }
 
@@ -1613,6 +1740,11 @@ window.addEventListener('DOMContentLoaded', () => {
     $('selectAllCheckbox').addEventListener('change', event => toggleSelectAll(event.target.checked));
     $('deleteSelectedButton').addEventListener('click', deleteSelectedMessages);
     $('exportSelectedButton').addEventListener('click', exportSelectedMessages);
+    $('markReadButton').addEventListener('click', () => setEmailsRead(selectedIds(), true));
+    $('markUnreadButton').addEventListener('click', () => setEmailsRead(selectedIds(), false));
+    $('markAllReadButton').addEventListener('click', markAllEmailsRead);
+    $('unreadOnly').addEventListener('change', filterMessages);
+    refreshUnreadCounts();
     $('attachmentsInput').addEventListener('change', event => addAttachedFiles(Array.from(event.target.files)));
     // Copies the plain-text body, whatever view is showing
     $('copyMessageButton').addEventListener('click', event => {
