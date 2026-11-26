@@ -159,6 +159,68 @@ function setSidebarCollapsed(collapsed) {
     saveSetting('ms_sidebar_collapsed', collapsed ? 'yes' : 'no');
 }
 
+// --- Small screens: hamburger drawer and the three-dots filters ---
+
+function initMobileChrome() {
+    const body = document.body;
+    const menu = $('menuButton');
+    const setDrawer = open => {
+        body.classList.toggle('drawer-open', open);
+        $('sidebarBackdrop').classList.toggle('hidden', !open);
+        menu.setAttribute('aria-expanded', String(open));
+        menu.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    };
+    menu.addEventListener('click', () => setDrawer(!body.classList.contains('drawer-open')));
+    $('sidebarBackdrop').addEventListener('click', () => setDrawer(false));
+    // Choosing a page closes the drawer
+    $('sidebar').addEventListener('click', event => {
+        if (event.target.closest('.sidebar-nav .nav-link, #logoutButton, a[href^="#/"]')) setDrawer(false);
+    });
+    window.addEventListener('hashchange', () => {
+        setDrawer(false);
+        document.querySelectorAll('.messages-layout.detail-open').forEach(layout => layout.classList.remove('detail-open'));
+    });
+    // Back from an opened email or SMS to the list (small screens)
+    document.querySelectorAll('.detail-back').forEach(back => back.addEventListener('click', () => {
+        back.closest('.messages-layout').classList.remove('detail-open');
+    }));
+    window.matchMedia('(min-width: 901px)').addEventListener('change', event => {
+        if (event.matches) setDrawer(false);
+    });
+
+    // The search and date filters sit behind the three dots at the right of each page title
+    const closeFilters = except => document.querySelectorAll('.view-header.filters-open').forEach(header => {
+        if (header === except) return;
+        header.classList.remove('filters-open');
+        header.querySelector('.filters-toggle').setAttribute('aria-expanded', 'false');
+    });
+    document.querySelectorAll('.filters-toggle').forEach(button => {
+        button.addEventListener('click', event => {
+            event.stopPropagation();
+            const header = button.closest('.view-header');
+            closeFilters(header);
+            const open = header.classList.toggle('filters-open');
+            button.setAttribute('aria-expanded', String(open));
+            if (open) header.querySelector('input[type="search"]')?.focus();
+        });
+    });
+    // Taps outside the panel, Escape, and running a search all close it
+    document.addEventListener('click', event => {
+        if (!event.target.closest('.view-header .toolbar')) closeFilters(null);
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            closeFilters(null);
+            setDrawer(false);
+        }
+    });
+    document.querySelectorAll('.view-header .toolbar button.primary, .view-header .toolbar select').forEach(control => {
+        control.addEventListener('click', event => {
+            if (control.tagName === 'BUTTON') setTimeout(() => closeFilters(null), 0);
+        });
+    });
+}
+
 // --- Resizable sidebar ---
 
 const SIDEBAR_DEFAULT = 232;
@@ -570,6 +632,7 @@ function renderMessages() {
 
 function selectMessage(id) {
     selectedId = id;
+    $('emailLayout').classList.add('detail-open'); // small screens show the email only once it is opened
     document.querySelectorAll('.message-row').forEach(row => row.classList.toggle('selected', row.dataset.id === String(id)));
     const msg = messages.find(m => m.id === id);
     showDetails(msg);
@@ -1789,6 +1852,7 @@ window.addEventListener('DOMContentLoaded', () => {
     loadServerInfo();
 
     $('collapseButton').addEventListener('click', () => setSidebarCollapsed(!document.body.classList.contains('sidebar-collapsed')));
+    initMobileChrome();
     $('logoutButton').addEventListener('click', logout);
 
     // Messages

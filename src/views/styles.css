@@ -2007,6 +2007,13 @@ body.login-page {
     color: var(--muted);
 }
 
+/* ===== Mobile chrome: hidden on wide screens, shown by the 900px block below ===== */
+.mobile-bar,
+.filters-toggle,
+.detail-back {
+    display: none;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 1100px) {
     .api-columns,
@@ -2018,53 +2025,240 @@ body.login-page {
 
 @media (max-width: 900px) {
     body.app {
-        overflow: auto;
+        overflow: hidden;
+        flex-direction: column;
+        height: 100dvh;
     }
 
-    .sidebar {
-        width: var(--sidebar-collapsed);
+    .content {
+        flex: 1;
+        min-height: 0;
     }
 
-    .sidebar .label {
-        display: none;
+    /* The sidebar becomes a drawer opened by the hamburger, always with full labels */
+    .sidebar,
+    body.sidebar-collapsed .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 50;
+        width: min(300px, 85vw);
+        overflow-y: auto;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        box-shadow: none;
+    }
+
+    body.drawer-open .sidebar {
+        transform: none;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    }
+
+    body.sidebar-collapsed .sidebar .label {
+        display: revert;
+    }
+
+    body.sidebar-collapsed .sidebar-brand .brand-mark {
+        display: inline-flex;
+    }
+
+    body.sidebar-collapsed .theme-switch {
+        flex-direction: row;
+        border: revert;
+        background: revert;
+    }
+
+    body.sidebar-collapsed .theme-switch button:not(.active) {
+        display: revert;
+    }
+
+    body.sidebar-collapsed .sidebar-user {
+        padding: revert;
+        background: revert;
+        align-items: revert;
     }
 
     #collapseButton,
     .sidebar-resizer {
+        display: none !important;
+    }
+
+    .range-icon,
+    body.sidebar-collapsed .range-icon {
         display: none;
+    }
+
+    .sidebar-section .sidebar-label {
+        display: block;
+    }
+
+    .sidebar .range-select,
+    body.sidebar-collapsed .sidebar .range-select {
+        display: block;
+        position: static;
+        opacity: 1;
+    }
+
+    .sidebar-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        background: rgba(0, 0, 0, 0.55);
+    }
+
+    .sidebar-backdrop.hidden {
+        display: none;
+    }
+
+    .mobile-bar {
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        background: var(--sidebar-bg);
+        color: #fff;
+    }
+
+    .mobile-bar-title {
+        font-weight: 600;
+        font-size: 15px;
+    }
+
+    .mobile-menu-btn {
+        display: inline-flex;
+        padding: 7px;
+        background: none;
+        border: none;
+        border-radius: 8px;
+        color: #fff;
+    }
+
+    .mobile-menu-btn:hover {
+        background: var(--sidebar-hover);
+    }
+
+    .mobile-menu-btn svg,
+    .filters-toggle svg {
+        width: 22px;
+        height: 22px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+    }
+
+    .filters-toggle svg {
+        fill: currentColor;
+    }
+
+    /* Search and date filters: hidden until the three dots are tapped */
+    .view-header {
+        position: relative;
+        flex-wrap: nowrap;
+    }
+
+    .view-header .view-title {
+        flex-wrap: wrap;
+        flex: 1;
+    }
+
+    .view-header .filters-toggle {
+        display: inline-flex;
+        flex: none;
+        padding: 6px;
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+    }
+
+    .view-header .toolbar:has(input[type="search"]) {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        z-index: 30;
+        padding: 12px;
+        background: var(--surface);
+        border: 1px solid var(--border-strong);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    .view-header.filters-open .toolbar:has(input[type="search"]) {
+        display: flex;
+    }
+
+    .toolbar input[type="search"],
+    .toolbar select {
+        flex: 1 1 100%;
+        width: 100%;
+    }
+
+    .toolbar .date-field {
+        flex: 1 1 40%;
+    }
+
+    .toolbar .date-field input {
+        flex: 1;
+        min-width: 0;
     }
 
     .view[data-view="messages"] {
         overflow: auto;
     }
 
+    /* One pane at a time: the list, then the opened message with a Back button */
     .messages-layout {
         grid-template-columns: minmax(0, 1fr);
-        gap: 12px;
+        grid-template-rows: minmax(0, 1fr);
+        gap: 0;
     }
 
     .pane-resizer {
         display: none;
     }
 
-    /* Small screens always use the icon-only sidebar */
-    .range-icon {
-        display: flex;
-    }
-
-    .sidebar-section .sidebar-label {
+    .messages-layout .detail-pane,
+    .messages-layout.detail-open .list-pane {
         display: none;
     }
 
-    .sidebar .range-select {
-        display: block;
-        position: absolute;
-        inset: 0;
-        opacity: 0;
+    .messages-layout.detail-open .detail-pane {
+        display: flex;
     }
 
-    .list-pane {
-        max-height: 60vh;
+    .detail-back {
+        display: block;
+        flex: none;
+        width: 100%;
+        padding: 10px 14px;
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        border-radius: 0;
+        background: var(--surface-alt);
+        color: var(--blue);
+        font-weight: 600;
+        text-align: left;
+    }
+
+    /* Compact rows: sender and time, then the subject (SMS keeps its one-line text) */
+    .message-row {
+        padding: 6px 10px;
+        gap: 8px;
+    }
+
+    .row-recipient,
+    #messageList .row-text {
+        display: none;
+    }
+
+    .row-subject,
+    .row-text {
+        margin-top: 1px;
     }
 
     .login-shell {

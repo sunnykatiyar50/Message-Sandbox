@@ -136,6 +136,7 @@ function smsRender() {
 
 function smsSelect(id) {
     smsSelectedId = id;
+    $('smsLayout').classList.add('detail-open'); // small screens show the message only once it is opened
     document.querySelectorAll('#smsList .message-row').forEach(row => row.classList.toggle('selected', row.dataset.id === String(id)));
     const message = smsMessages.find(m => m.id === id);
     smsShowDetails(message);
