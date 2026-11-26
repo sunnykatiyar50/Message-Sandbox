@@ -418,8 +418,10 @@ body.sidebar-collapsed .sidebar-toggle {
     white-space: nowrap;
 }
 
+/* The version sits on its own row under the header */
 .brand-version {
-    margin-top: 2px;
+    padding: 0 10px 10px;
+    margin-top: -2px;
 }
 
 .brand-mark {
