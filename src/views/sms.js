@@ -126,6 +126,7 @@ function smsRender() {
 
         li.appendChild(checkWrap);
         li.appendChild(body);
+        li.appendChild(rowActions(() => smsSetRead([msg.id], !msg.read), () => smsDelete([msg.id])));
         updateRowRead(li, msg.read);
         list.appendChild(li);
     }
@@ -301,8 +302,11 @@ function smsToggleSelectAll(checked) {
     smsUpdateSelectionInfo();
 }
 
-async function smsDeleteSelected() {
-    const ids = smsSelectedIds();
+function smsDeleteSelected() {
+    return smsDelete(smsSelectedIds());
+}
+
+async function smsDelete(ids) {
     if (ids.length === 0) return;
     if (!confirm(`Delete ${ids.length} message(s)? This can't be undone.`)) return;
     try {
@@ -553,6 +557,7 @@ window.addEventListener('DOMContentLoaded', () => {
     $('smsPageSize').addEventListener('change', smsChangePageSize);
     $('smsSelectAll').addEventListener('change', event => smsToggleSelectAll(event.target.checked));
     bindSelectMode('smsSelectModeButton', smsUpdateSelectionInfo);
+    bindToolbarMenu('smsMoreButton');
     $('smsDeleteSelected').addEventListener('click', smsDeleteSelected);
     $('smsMarkRead').addEventListener('click', () => smsSetRead(smsSelectedIds(), true));
     $('smsMarkUnread').addEventListener('click', () => smsSetRead(smsSelectedIds(), false));

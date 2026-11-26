@@ -96,14 +96,14 @@
                 <svg class="theme-icon theme-icon-dark" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 <span class="label" data-theme-label>Theme: System</span>
             </button>
-            <button type="button" id="logoutButton" class="nav-link" title="Sign out">
-                <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                <span class="label">Sign out</span>
-            </button>
             <div class="nav-link static" title="Signed in user">
                 <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span id="currentUser" class="label">admin</span>
             </div>
+            <button type="button" id="logoutButton" class="nav-link" title="Sign out">
+                <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span class="label">Sign out</span>
+            </button>
         </div>
     </aside>
 
@@ -145,8 +145,13 @@
                             <button id="markReadButton" type="button" class="tb-btn select-only" title="Mark the selected emails as read" aria-label="Mark the selected emails as read"><svg viewBox="0 0 24 24"><path d="M21.2 8.4 12 14 2.8 8.4"/><path d="M2.8 8.4 12 2l9.2 6.4V19a2 2 0 0 1-2 2H4.8a2 2 0 0 1-2-2z"/></svg><span>Read</span></button>
                             <button id="markUnreadButton" type="button" class="tb-btn select-only" title="Mark the selected emails as unread" aria-label="Mark the selected emails as unread"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><span>Unread</span></button>
                             <button id="markAllReadButton" type="button" class="tb-btn" title="Mark every email matching the current filters as read" aria-label="Mark every email matching the current filters as read"><svg viewBox="0 0 24 24"><polyline points="2 13 7 18 16 7"/><polyline points="12 16 14 18 23 7"/></svg><span>All read</span></button>
-                            <button id="exportSelectedButton" type="button" class="tb-btn select-only" title="Download the selected emails as a zip of .eml files" aria-label="Download the selected emails as a zip of .eml files"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Export</span></button>
-                            <button id="deleteSelectedButton" type="button" class="tb-btn danger admin-only select-only" title="Delete the selected emails" aria-label="Delete the selected emails"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg><span>Delete</span></button>
+                            <div class="tb-menu select-only">
+                                <button id="emailMoreButton" type="button" class="tb-btn" aria-haspopup="menu" aria-expanded="false" title="More actions" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>
+                                <div class="tb-menu-list hidden" role="menu">
+                                <button id="exportSelectedButton" type="button" role="menuitem" class="menu-item" disabled><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Export selected</span></button>
+                                <button id="deleteSelectedButton" type="button" role="menuitem" class="menu-item danger admin-only" disabled><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg><span>Delete selected</span></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <ul id="messageList" class="message-list"></ul>
@@ -230,7 +235,12 @@
                             <button id="smsMarkRead" type="button" class="tb-btn select-only" title="Mark the selected messages as read" aria-label="Mark the selected messages as read"><svg viewBox="0 0 24 24"><path d="M21.2 8.4 12 14 2.8 8.4"/><path d="M2.8 8.4 12 2l9.2 6.4V19a2 2 0 0 1-2 2H4.8a2 2 0 0 1-2-2z"/></svg><span>Read</span></button>
                             <button id="smsMarkUnread" type="button" class="tb-btn select-only" title="Mark the selected messages as unread" aria-label="Mark the selected messages as unread"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><span>Unread</span></button>
                             <button id="smsMarkAllRead" type="button" class="tb-btn" title="Mark every message matching the current filters as read" aria-label="Mark every message matching the current filters as read"><svg viewBox="0 0 24 24"><polyline points="2 13 7 18 16 7"/><polyline points="12 16 14 18 23 7"/></svg><span>All read</span></button>
-                            <button id="smsDeleteSelected" type="button" class="tb-btn danger admin-only select-only" title="Delete the selected messages" aria-label="Delete the selected messages"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg><span>Delete</span></button>
+                            <div class="tb-menu select-only">
+                                <button id="smsMoreButton" type="button" class="tb-btn" aria-haspopup="menu" aria-expanded="false" title="More actions" aria-label="More actions"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="12" cy="19" r="1.2"/></svg></button>
+                                <div class="tb-menu-list hidden" role="menu">
+                                <button id="smsDeleteSelected" type="button" role="menuitem" class="menu-item danger admin-only" disabled><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg><span>Delete selected</span></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <ul id="smsList" class="message-list"></ul>
