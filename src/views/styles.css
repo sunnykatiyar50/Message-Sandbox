@@ -673,29 +673,6 @@ body.sidebar-collapsed .sidebar .range-select {
     font-weight: 600;
 }
 
-.signout-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    width: 100%;
-    padding: 6px 8px;
-    border: 0;
-    border-radius: 7px;
-    background: rgba(255, 255, 255, 0.08);
-    color: #e6edf3;
-    font: inherit;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.signout-btn:hover {
-    background: rgba(239, 90, 80, 0.28);
-    color: #fff;
-}
-
-.signout-btn svg,
 .theme-switch svg {
     width: 13px;
     height: 13px;
@@ -778,12 +755,6 @@ body.sidebar-collapsed .sidebar-user {
     padding: 6px 0;
     background: none;
     align-items: center;
-}
-
-body.sidebar-collapsed .signout-btn {
-    width: auto;
-    padding: 7px;
-    background: none;
 }
 
 body.sidebar-collapsed .theme-switch {
