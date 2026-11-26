@@ -97,6 +97,15 @@ async function connect() {
     `);
     await pool.query('CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log (timestamp)');
 
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+            name VARCHAR(64) PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL,
+            updated_by VARCHAR(64)
+        )
+    `);
+
     return {
         dialect: 'postgres',
         all: async (sql, params = []) => (await pool.query(toPgPlaceholders(sql), params)).rows,

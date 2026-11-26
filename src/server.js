@@ -8,6 +8,7 @@ const createSmsRoutes = require('./routes/smsRoutes');
 const EventsController = require('./controllers/eventsController');
 const createApiKeyRoutes = require('./routes/apiKeyRoutes');
 const createActivityRoutes = require('./routes/activityRoutes');
+const createSettingsRoutes = require('./routes/settingsRoutes');
 const { record, rateLimitHandler } = require('./utils/activity');
 const { Metrics } = require('./utils/metrics');
 
@@ -15,7 +16,7 @@ const viewsDir = path.join(__dirname, 'views');
 
 // Builds the Express app. Kept separate from app.js so tests can create it with their own config and database.
 // smsModel / ingestSms are optional only so a test can build an app for one channel
-function createApp({ config, emailModel, smsModel = null, apiKeyModel, activityModel = null, ingest, ingestSms = null, events, metrics = new Metrics() }) {
+function createApp({ config, emailModel, smsModel = null, apiKeyModel, activityModel = null, settings = null, ingest, ingestSms = null, events, metrics = new Metrics() }) {
     const app = express();
     const auth = createAuth(config, { apiKeyModel });
 
@@ -93,6 +94,7 @@ function createApp({ config, emailModel, smsModel = null, apiKeyModel, activityM
     if (smsModel) app.use('/api/sms', createSmsRoutes({ smsModel, ingestSms, events, auth, config }));
     app.use('/api/keys', createApiKeyRoutes({ apiKeyModel, auth, config }));
     if (activityModel) app.use('/api/activity', createActivityRoutes({ activityModel, auth, config }));
+    if (settings) app.use('/api/settings', createSettingsRoutes({ settings, auth }));
     // Prometheus metrics: the same access as reading emails (a Read key works as a bearer token for the scraper)
     app.get('/metrics', auth.requireRead, async (req, res) => {
         if (!config.metricsEnabled) return res.status(404).json({ error: 'Not found' });

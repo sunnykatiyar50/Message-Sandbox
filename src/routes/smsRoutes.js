@@ -15,7 +15,7 @@ function createSmsRoutes({ smsModel, ingestSms, events, auth, config }) {
 
     const ingestLimiter = rateLimit({
         windowMs: 60 * 1000,
-        limit: config.smsRateLimit,
+        limit: () => config.smsRateLimit,
         standardHeaders: 'draft-8',
         legacyHeaders: false,
         message: { error: 'Too many messages, slow down.' },

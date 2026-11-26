@@ -12,6 +12,7 @@ const ACTIVITY_CATEGORY_LABELS = {
     ratelimit: 'Rate limit',
     webhook: 'Webhook',
     relay: 'Relay',
+    settings: 'Settings',
     system: 'Server',
 };
 

@@ -1,7 +1,7 @@
 const { logToFile } = require('./logger');
 
 const LEVELS = ['info', 'warn', 'error'];
-const CATEGORIES = ['auth', 'keys', 'smtp', 'tls', 'ratelimit', 'webhook', 'relay', 'system'];
+const CATEGORIES = ['auth', 'keys', 'smtp', 'tls', 'ratelimit', 'webhook', 'relay', 'settings', 'system'];
 const MAX_FIELD = { message: 1000, ip: 64, actor: 64 };
 const THROTTLE_MAP_LIMIT = 1000;
 

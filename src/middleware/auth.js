@@ -16,7 +16,8 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 const requestPath = req => `${req.baseUrl}${req.path}`.replace(/(.)\/$/, '$1');
 
 function createAuth(config, { apiKeyModel } = {}) {
-    const ttlMs = config.sessionTtlHours * 60 * 60 * 1000;
+    // Read at sign-in, so a changed SESSION_TTL_HOURS applies to the next session
+    const ttlMs = () => config.sessionTtlHours * 60 * 60 * 1000;
 
     const accounts = [
         { username: config.adminUsername, password: config.adminPassword, role: 'admin' },
@@ -151,12 +152,12 @@ function createAuth(config, { apiKeyModel } = {}) {
             record({ level: 'warn', category: 'auth', message: `Failed dashboard login from ${req.ip}`, ip: req.ip, throttleMs: 30 * 1000 });
             return res.status(401).json({ error: 'Incorrect username or password' });
         }
-        const token = createSessionToken(config.sessionSecret, ttlMs, {
+        const token = createSessionToken(config.sessionSecret, ttlMs(), {
             u: match.username,
             r: match.role,
             p: passwordFingerprint(match.password),
         });
-        res.cookie(SESSION_COOKIE, token, { ...cookieOptions(req), maxAge: ttlMs });
+        res.cookie(SESSION_COOKIE, token, { ...cookieOptions(req), maxAge: ttlMs() });
         record({ category: 'auth', message: `Dashboard login: "${match.username}" (${match.role}) from ${req.ip}`, ip: req.ip, actor: match.username });
         res.json({ success: true, role: match.role });
     }

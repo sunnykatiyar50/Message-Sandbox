@@ -102,6 +102,14 @@ async function connect() {
             INDEX idx_activity_timestamp (timestamp)
         )
     `);
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS app_settings (
+            name VARCHAR(64) PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at DATETIME(3) NOT NULL,
+            updated_by VARCHAR(64)
+        )
+    `);
     return {
         dialect: 'mysql',
         all: async (sql, params = []) => (await pool.query(sql, params))[0],
