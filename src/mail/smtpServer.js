@@ -3,6 +3,7 @@ const { SMTPServer } = require('smtp-server');
 const { safeEqual } = require('../utils/session');
 const { matchesAny, describeRule } = require('../utils/recipients');
 const { logToFile } = require('../utils/logger');
+const { record } = require('../utils/activity');
 const { Metrics } = require('../utils/metrics');
 
 // Accepts every message, from anyone to anyone, and stores it. Nothing is relayed unless the optional relay
@@ -88,7 +89,7 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
             const userOk = safeEqual(auth.username || '', config.smtpUsername);
             const passOk = safeEqual(auth.password || '', config.smtpPassword);
             if (userOk && passOk) return callback(null, { user: auth.username });
-            logToFile(`SMTP login failed from ${session.remoteAddress}`);
+            record({ level: 'warn', category: 'smtp', message: `SMTP login failed from ${session.remoteAddress}`, ip: session.remoteAddress, throttleMs: 30 * 1000 });
             callback(new Error('Invalid username or password'));
         },
 
@@ -135,7 +136,7 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
                     callback();
                 } catch (error) {
                     metrics.inc('message_sandbox_messages_rejected_total', { reason: 'store_error' });
-                    logToFile(`Failed to store email: ${error.stack || error}`);
+                    record({ level: 'error', category: 'smtp', message: `Failed to store email: ${error.stack || error}`, ip: session.remoteAddress });
                     callback(failure(451, 'Could not store the message, try again'));
                 }
             });
@@ -147,11 +148,11 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
         if (/while initiating TLS/i.test(error.message)) {
             // The client dropped the connection during the handshake: usually it doesn't trust the certificate
             // (self-signed, or a Let's Encrypt staging one), or it is a port scanner. Not a server fault.
-            logToFile(`TLS handshake did not complete on the ${listener}${from ? ` from ${from}` : ''}: the client closed the connection (it may not trust the certificate)`);
+            record({ level: 'warn', category: 'tls', message: `TLS handshake did not complete on the ${listener}${from ? ` from ${from}` : ''}: the client closed the connection (it may not trust the certificate)`, ip: from, throttleMs: 60 * 1000 });
             return;
         }
         const detail = config.smtpDebug ? ` [${[error.code, error.meta && error.meta.tlsProtocol].filter(Boolean).join(', ')}]` : '';
-        logToFile(`SMTP server error on the ${listener}: ${error.message}${detail}`);
+        record({ level: 'error', category: 'smtp', message: `SMTP server error on the ${listener}: ${error.message}${detail}`, ip: from, throttleMs: 60 * 1000 });
     });
     // At the TCP level, so a connection that fails its TLS handshake is still seen, with the client's address
     server.server.on('connection', socket => {
@@ -164,7 +165,7 @@ function createSmtpServer({ config, ingest, secure = false, metrics = new Metric
             // The TLS port speaks only after the client's handshake. A client that waited for a plain SMTP greeting
             // (configured for no encryption or STARTTLS on this port) sends nothing and gives up after its timeout.
             if (secure && socket.bytesRead === 0 && ms >= IDLE_CLIENT_MS) {
-                logToFile(`${from} connected to the TLS port, sent nothing for ${Math.round(ms / 1000)}s and gave up: it is probably set to plain SMTP or STARTTLS here. The TLS port needs SSL/TLS from the first byte (SMTPS); for STARTTLS or no encryption use the SMTP port`);
+                record({ level: 'warn', category: 'tls', ip: from, throttleMs: 60 * 1000, message: `${from} connected to the TLS port, sent nothing for ${Math.round(ms / 1000)}s and gave up: it is probably set to plain SMTP or STARTTLS here. The TLS port needs SSL/TLS from the first byte (SMTPS); for STARTTLS or no encryption use the SMTP port` });
             }
         });
     });

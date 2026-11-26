@@ -15,6 +15,7 @@ const PRECACHE = [
     'formatters.js',
     'scripts.js',
     'sms.js',
+    'activity.js',
     'login.js',
     'favicon.svg',
     'icons/icon-192.png',

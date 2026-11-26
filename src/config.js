@@ -115,6 +115,9 @@ function loadConfig(env = process.env) {
         apiRateLimit: toInt(env.API_RATE_LIMIT, 120),
         smsRateLimit: toInt(env.SMS_RATE_LIMIT, 120),
         retentionDays: toInt(env.RETENTION_DAYS, 0),
+        // The dashboard's Activity page (audit trail and errors): how long events are kept, and a cap on how many
+        activityRetentionDays: toInt(env.ACTIVITY_RETENTION_DAYS, 30),
+        activityMaxRows: toInt(env.ACTIVITY_MAX_ROWS, 20000),
     };
 
     if (config.webhookUrl && !/^https?:\/\/[^\s/]+/i.test(config.webhookUrl)) {

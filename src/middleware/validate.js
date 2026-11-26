@@ -1,4 +1,5 @@
 // Request validation. Each validator either stores the cleaned values on req or responds with 400.
+const { LEVELS, CATEGORIES } = require('../utils/activity');
 
 const MAX_PAGE_SIZE = 100;
 const MAX_BULK_DELETE = 500;
@@ -118,6 +119,23 @@ function validateSmsQuery(req, res, next) {
             before,
         },
         unmask: str('unmask') === 'true',
+    };
+    return next();
+}
+
+// Activity filters: level (info, warn, error, or problems for warn and error), category, ip, search
+// (message, address or user) and the time window
+function validateActivityQuery(req, res, next) {
+    const { errors, str, page, pageSize, after, before } = readListQuery(req);
+    const level = str('level');
+    if (level && ![...LEVELS, 'problems'].includes(level)) errors.level = `must be one of ${[...LEVELS, 'problems'].join(', ')}`;
+    const category = str('category');
+    if (category && !CATEGORIES.includes(category)) errors.category = `must be one of ${CATEGORIES.join(', ')}`;
+    if (Object.keys(errors).length) return badRequest(res, errors);
+    req.listQuery = {
+        page,
+        pageSize,
+        filters: { level, category, ip: str('ip').slice(0, 64), search: str('search').slice(0, 200), after, before },
     };
     return next();
 }
@@ -281,6 +299,7 @@ function validateTestEmail(req, res, next) {
 
 module.exports = {
     validateListQuery,
+    validateActivityQuery,
     validateSmsQuery,
     validateNewSms,
     validateSmsDelete,

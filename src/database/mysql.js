@@ -90,6 +90,18 @@ async function connect() {
     if (recipientsColumn.length === 0) {
         await pool.query('ALTER TABLE api_keys ADD COLUMN allowed_recipients TEXT');
     }
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS activity_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            timestamp DATETIME(3) NOT NULL,
+            level VARCHAR(8) NOT NULL,
+            category VARCHAR(16) NOT NULL,
+            message TEXT NOT NULL,
+            ip VARCHAR(64),
+            actor VARCHAR(64),
+            INDEX idx_activity_timestamp (timestamp)
+        )
+    `);
     return {
         dialect: 'mysql',
         all: async (sql, params = []) => (await pool.query(sql, params))[0],

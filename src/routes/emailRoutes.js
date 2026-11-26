@@ -1,5 +1,6 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const { rateLimitHandler } = require('../utils/activity');
 const EmailController = require('../controllers/emailController');
 const {
     validateListQuery,
@@ -20,6 +21,7 @@ function createEmailRoutes({ emailModel, ingest, events, auth, config }) {
         standardHeaders: 'draft-8',
         legacyHeaders: false,
         message: { error: 'Too many requests, slow down.' },
+        handler: rateLimitHandler('POST /api/emails/test'),
     });
 
     // Reading: a Read key, a viewer, or an admin

@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const { matchesAny } = require('../utils/recipients');
 const { logToFile } = require('../utils/logger');
+const { record } = require('../utils/activity');
 const { Metrics } = require('../utils/metrics');
 
 // Optionally forwards a stored email to a real mail server, for the recipients on an allowlist only.
@@ -28,7 +29,7 @@ function createRelay(config, metrics = new Metrics()) {
             logToFile(`Relayed email id=${id} to ${recipients.length} allowed recipient(s) via ${config.relayHost}`);
         } catch (error) {
             metrics.inc('message_sandbox_relay_total', { result: 'failed' });
-            logToFile(`Relay of email id=${id} via ${config.relayHost} failed: ${error.message}`);
+            record({ level: 'error', category: 'relay', message: `Relay of email id=${id} via ${config.relayHost} failed: ${error.message}`, throttleMs: 30 * 1000 });
         }
     };
 }

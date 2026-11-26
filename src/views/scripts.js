@@ -119,8 +119,8 @@ async function copyText(text, button) {
 
 // --- Navigation ---
 
-const VIEWS = ['messages', 'sms', 'send', 'keys', 'api'];
-const VIEW_TITLES = { messages: 'Emails', sms: 'SMS', send: 'Send test', keys: 'API keys', api: 'Setup & API' };
+const VIEWS = ['messages', 'sms', 'send', 'keys', 'activity', 'api'];
+const VIEW_TITLES = { messages: 'Emails', sms: 'SMS', send: 'Send test', keys: 'API keys', activity: 'Activity', api: 'Setup & API' };
 
 function currentView() {
     const name = location.hash.replace(/^#\/?/, '');
@@ -144,6 +144,7 @@ function showView() {
     if (view === 'messages') reloadWithSavedParams();
     if (view === 'sms') smsShow();
     if (view === 'send') focusSendForm();
+    if (view === 'activity') activityShow();
     if (view === 'keys') loadKeys();
     else forgetRevealedKeys();
 }
@@ -240,7 +241,7 @@ function initSidebarResizer() {
 // The signed-in account's role: 'admin' or 'viewer'. Viewers only see messages; the server
 // enforces this too, the dashboard just hides what they can't use.
 let userRole = 'admin';
-const ADMIN_VIEWS = ['send', 'keys'];
+const ADMIN_VIEWS = ['send', 'keys', 'activity'];
 
 async function loadSession() {
     try {

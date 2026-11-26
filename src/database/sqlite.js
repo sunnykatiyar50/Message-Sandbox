@@ -84,6 +84,20 @@ async function connect() {
         db.exec('ALTER TABLE api_keys ADD COLUMN allowed_recipients TEXT');
     }
 
+    // Audit trail and errors shown on the dashboard's Activity page (see utils/activity.js)
+    db.exec(
+        `CREATE TABLE IF NOT EXISTS activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            level TEXT NOT NULL,
+            category TEXT NOT NULL,
+            message TEXT NOT NULL,
+            ip TEXT,
+            actor TEXT
+        )`
+    );
+    db.exec('CREATE INDEX IF NOT EXISTS idx_activity_timestamp ON activity_log (timestamp)');
+
     const run = (sql, params) => db.prepare(sql).run(...params.map(toParam));
 
     return {

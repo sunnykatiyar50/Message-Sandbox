@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { logToFile } = require('../utils/logger');
+const { record } = require('../utils/activity');
 const { Metrics } = require('../utils/metrics');
 
 const TIMEOUT_MS = 5000;
@@ -26,10 +27,11 @@ function createWebhook({ url, secret, metrics = new Metrics() }) {
         try {
             const response = await fetch(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(TIMEOUT_MS) });
             metrics.inc('message_sandbox_webhook_deliveries_total', { result: response.ok ? 'success' : 'failure' });
-            logToFile(`Webhook to ${host} for ${event} id=${data.id}: HTTP ${response.status}`);
+            if (response.ok) logToFile(`Webhook to ${host} for ${event} id=${data.id}: HTTP ${response.status}`);
+            else record({ level: 'error', category: 'webhook', message: `Webhook to ${host} for ${event} id=${data.id}: HTTP ${response.status}`, throttleMs: 30 * 1000 });
         } catch (error) {
             metrics.inc('message_sandbox_webhook_deliveries_total', { result: 'failure' });
-            logToFile(`Webhook to ${host} for ${event} id=${data.id} failed: ${error.message}`);
+            record({ level: 'error', category: 'webhook', message: `Webhook to ${host} for ${event} id=${data.id} failed: ${error.message}`, throttleMs: 30 * 1000 });
         }
     };
 }
