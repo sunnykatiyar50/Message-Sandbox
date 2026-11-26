@@ -63,6 +63,13 @@ async function connect() {
         )`
     );
     db.exec('CREATE INDEX IF NOT EXISTS idx_sms_timestamp ON sms_messages (timestamp)');
+    // When messages were marked read (NULL: unread). Messages stored before this existed count as read.
+    for (const table of ['emails', 'sms_messages']) {
+        if (!db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === 'read_at')) {
+            db.exec(`ALTER TABLE ${table} ADD COLUMN read_at TEXT`);
+            db.exec(`UPDATE ${table} SET read_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`);
+        }
+    }
     db.exec(
         `CREATE TABLE IF NOT EXISTS api_keys (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,6 +89,10 @@ async function connect() {
     // Added after the table was first introduced
     if (!db.prepare('PRAGMA table_info(api_keys)').all().some(c => c.name === 'allowed_recipients')) {
         db.exec('ALTER TABLE api_keys ADD COLUMN allowed_recipients TEXT');
+    }
+
+    if (!db.prepare('PRAGMA table_info(api_keys)').all().some(c => c.name === 'created_by')) {
+        db.exec('ALTER TABLE api_keys ADD COLUMN created_by TEXT');
     }
 
     // Settings changed on the Settings page (they win over .env; see settings/settings.js)

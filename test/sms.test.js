@@ -503,7 +503,9 @@ describe('dashboard session', () => {
     test('reports the signed-in user, and redirects around the login page', async () => {
         const cookie = await login();
         const status = await request(app).get('/auth/status').set('Cookie', cookie);
-        assert.deepEqual(status.body, { authenticated: true, authDisabled: false, username: 'opsadmin', role: 'admin' });
+        assert.deepEqual(status.body, { authenticated: true, authDisabled: false, username: 'opsadmin', role: 'admin', version: require('../package.json').version });
+        const signedOut = await request(app).get('/auth/status');
+        assert.equal(signedOut.body.version, null); // the version is not shown before sign-in
         const loginPage = await request(app).get('/login.html').set('Cookie', cookie);
         assert.equal(loginPage.status, 302);
         assert.equal(loginPage.headers.location, '/');

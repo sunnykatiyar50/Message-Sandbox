@@ -8,7 +8,7 @@ const NAME_MAX_LENGTH = 64; // the api_keys.name and sms_messages.api_key_name c
 // The rules stored for a key, as text ("a@x.com,example.com"), in the form they were written
 const rulesText = row => (row.allowed_recipients || '').split(',').map(s => s.trim()).filter(Boolean);
 
-function toKey(row, messageCounts = new Map()) {
+function toKey(row, counts = {}) {
     return {
         id: Number(row.id),
         name: row.name,
@@ -20,8 +20,11 @@ function toKey(row, messageCounts = new Map()) {
         revokedAt: toIso(row.revoked_at),
         // Empty: the key can read every inbox. Otherwise only emails sent to these addresses and domains.
         allowedRecipients: rulesText(row),
-        // SMS messages submitted with this key (Send keys); the dashboard's own test messages are not counted
-        messageCount: messageCounts.get(row.name) || 0,
+        // The dashboard user who created the key (null for keys made with the admin token, or before this was recorded)
+        createdBy: row.created_by || null,
+        // Messages received with this key: SMS for a Send key, email for an Email key. The dashboard's own test
+        // messages are not counted.
+        messageCount: ((row.scope === 'send' ? counts.sms : row.scope === 'email' ? counts.email : null) || new Map()).get(row.name) || 0,
     };
 }
 
@@ -35,10 +38,12 @@ class ApiKeyModel {
     }
 
     async messageCounts() {
-        const rows = await this.db.all(
-            'SELECT api_key_name AS name, COUNT(*) AS total FROM sms_messages WHERE api_key_name IS NOT NULL GROUP BY api_key_name'
-        );
-        return new Map(rows.map(r => [r.name, Number(r.total)]));
+        const [sms, email] = await Promise.all([
+            this.db.all('SELECT api_key_name AS name, COUNT(*) AS total FROM sms_messages WHERE api_key_name IS NOT NULL GROUP BY api_key_name'),
+            this.db.all('SELECT smtp_user AS name, COUNT(*) AS total FROM emails WHERE smtp_user IS NOT NULL GROUP BY smtp_user'),
+        ]);
+        const toMap = rows => new Map(rows.map(r => [r.name, Number(r.total)]));
+        return { sms: toMap(sms), email: toMap(email) };
     }
 
     // Active keys first (newest first), then revoked ones
@@ -57,19 +62,25 @@ class ApiKeyModel {
     }
 
     // The name column is UNIQUE, so before a name is reused the revoked key that still holds it is renamed to
-    // "name (revoked #id)". Its SMS messages follow, so they stay with the revoked key instead of being
+    // "name (revoked #id)". Its messages follow, so they stay with the revoked key instead of being
     // counted under the new one.
     async releaseRevokedName(name) {
-        const rows = await this.db.all('SELECT id, name FROM api_keys WHERE LOWER(name) = LOWER(?) AND revoked_at IS NOT NULL', [name]);
+        const rows = await this.db.all('SELECT id, name, scope FROM api_keys WHERE LOWER(name) = LOWER(?) AND revoked_at IS NOT NULL', [name]);
         for (const row of rows) {
             const suffix = ` (revoked #${row.id})`;
             const renamed = row.name.slice(0, NAME_MAX_LENGTH - suffix.length) + suffix;
             await this.db.run('UPDATE api_keys SET name = ? WHERE id = ?', [renamed, row.id]);
-            await this.db.run('UPDATE sms_messages SET api_key_name = ? WHERE api_key_name = ?', [renamed, row.name]);
+            await this.moveMessages(row.scope, row.name, renamed);
         }
     }
 
-    // Renames an active key; its SMS messages follow so the "sent" count stays with it.
+    // A key's messages follow its name: SMS carry the key name, and so do the emails sent with an Email key
+    async moveMessages(scope, from, to) {
+        if (scope === 'send') await this.db.run('UPDATE sms_messages SET api_key_name = ? WHERE api_key_name = ?', [to, from]);
+        if (scope === 'email') await this.db.run('UPDATE emails SET smtp_user = ? WHERE smtp_user = ?', [to, from]);
+    }
+
+    // Renames an active key; its messages follow so the "sent" count stays with it.
     // Returns the key, or undefined if there's no such key, or { revoked: true } if it was revoked.
     async rename(id, name) {
         const [row] = await this.db.all('SELECT * FROM api_keys WHERE id = ?', [id]);
@@ -78,7 +89,7 @@ class ApiKeyModel {
         if (row.name !== name) {
             await this.releaseRevokedName(name);
             await this.db.run('UPDATE api_keys SET name = ? WHERE id = ?', [name, id]);
-            await this.db.run('UPDATE sms_messages SET api_key_name = ? WHERE api_key_name = ?', [name, row.name]);
+            await this.moveMessages(row.scope, row.name, name);
         }
         const [updated] = await this.db.all('SELECT * FROM api_keys WHERE id = ?', [id]);
         return { key: toKey(updated, await this.messageCounts()), previousName: row.name };
@@ -86,14 +97,15 @@ class ApiKeyModel {
 
     // Returns the new key's metadata and the full key
     // allowedRecipients: addresses / domains (see utils/recipients.js) the key is limited to; [] means no limit
-    async create({ name, scope, secret = generateApiKey(scope), source = 'dashboard', allowedRecipients = [] }) {
+    // createdBy: the dashboard user making the key, for the table (null when unknown)
+    async create({ name, scope, secret = generateApiKey(scope), source = 'dashboard', allowedRecipients = [], createdBy = null }) {
         await this.releaseRevokedName(name);
         const createdAt = new Date();
         const rules = parseRules(allowedRecipients.join(',')).map(describeRule);
         const id = await this.db.insert(
-            `INSERT INTO api_keys (name, scope, key_hash, key_prefix, key_encrypted, source, created_at, allowed_recipients)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name, scope, hashApiKey(secret), keyPrefix(secret), this.cipher.encrypt(secret), source, createdAt, rules.length ? rules.join(',') : null]
+            `INSERT INTO api_keys (name, scope, key_hash, key_prefix, key_encrypted, source, created_at, allowed_recipients, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name, scope, hashApiKey(secret), keyPrefix(secret), this.cipher.encrypt(secret), source, createdAt, rules.length ? rules.join(',') : null, createdBy]
         );
         const [row] = await this.db.all('SELECT * FROM api_keys WHERE id = ?', [Number(id)]);
         return { key: toKey(row), secret };
@@ -134,6 +146,25 @@ class ApiKeyModel {
         if (!row) return null;
         this.touch(Number(row.id));
         return { id: Number(row.id), name: row.name, scope: row.scope, allowedRecipients: parseRules(row.allowed_recipients || '') };
+    }
+
+    // Whether any active Email key exists. While none does (and SMTP_USERNAME is not set) SMTP stays open.
+    async hasEmailKeys() {
+        const rows = await this.db.all("SELECT id FROM api_keys WHERE scope = 'email' AND revoked_at IS NULL LIMIT 1");
+        return rows.length > 0;
+    }
+
+    // An SMTP login: the key's name as the username and the key as the password. Returns the key's name (as it
+    // is stored) or null. Only Email keys work here; a Send or Read key is refused like a wrong password.
+    async authenticateSmtp(username, password) {
+        if (typeof username !== 'string' || typeof password !== 'string' || !username || password.length > 512) return null;
+        const [row] = await this.db.all(
+            "SELECT id, name FROM api_keys WHERE key_hash = ? AND scope = 'email' AND revoked_at IS NULL",
+            [hashApiKey(password)]
+        );
+        if (!row || row.name.toLowerCase() !== username.toLowerCase()) return null;
+        this.touch(Number(row.id));
+        return row.name;
     }
 
     // Records when a key was last used, without a database write on every request

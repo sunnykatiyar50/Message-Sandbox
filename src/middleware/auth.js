@@ -2,6 +2,8 @@ const crypto = require('crypto');
 const { createSessionToken, verifySessionToken, safeEqual, parseCookies } = require('../utils/session');
 const { record } = require('../utils/activity');
 
+const APP_VERSION = require('../../package.json').version;
+
 const SESSION_COOKIE = 'ms_session';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -9,9 +11,10 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 //   admin  (ADMIN_USERNAME sign-in, ADMIN_TOKEN, or AUTH_DISABLED)       everything
 //   viewer (VIEWER_USERS sign-in)                                        view emails and SMS only
 //   Send key (created in the dashboard)                                  POST /api/sms
+//   Email key (created in the dashboard)                                 send mail over SMTP: key name as username, key as password
 //   Read key (created in the dashboard)                                  read emails and SMS (GET /api/emails, /api/sms, ...)
 //   Read key limited to some recipients                                  read only the emails sent to them; no SMS
-// Email itself arrives over SMTP, which has its own optional credentials (SMTP_USERNAME / SMTP_PASSWORD).
+// Each key has exactly one of those types. SMTP also accepts the optional SMTP_USERNAME / SMTP_PASSWORD login.
 // The path of a request for the audit trail, without a trailing slash ("/api/emails/" -> "/api/emails")
 const requestPath = req => `${req.baseUrl}${req.path}`.replace(/(.)\/$/, '$1');
 
@@ -80,6 +83,15 @@ function createAuth(config, { apiKeyModel } = {}) {
         if (!passesCsrfCheck(req, user.method)) return res.status(403).json({ error: 'Missing X-Requested-With header' });
         req.auth = { ...user, isAdmin: true };
         next();
+    }
+
+    // A signed-in dashboard user, admin or viewer, but never an API key (for things like marking messages read)
+    function requireDashboardUser(req, res, next) {
+        const user = currentUser(req);
+        if (!user) return res.status(401).json({ error: 'Authentication required' });
+        if (!passesCsrfCheck(req, user.method)) return res.status(403).json({ error: 'Missing X-Requested-With header' });
+        req.auth = { ...user, isAdmin: user.role === 'admin' };
+        return next();
     }
 
     // An admin, a viewer (reading only), or an API key with the given scope
@@ -174,12 +186,15 @@ function createAuth(config, { apiKeyModel } = {}) {
             authDisabled: config.authDisabled,
             username: user ? user.username : null,
             role: user ? user.role : null,
+            // only shown to signed-in users; this endpoint is reachable before sign-in
+            version: user ? APP_VERSION : null,
         });
     }
 
     return {
         currentUser,
         requireAdmin,
+        requireDashboardUser,
         requireIngest: requireKeyOrUser('send'),
         forbidRecipientLimit,
         requireRead: requireKeyOrUser('read'),

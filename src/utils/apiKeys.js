@@ -1,11 +1,13 @@
 const crypto = require('crypto');
 
 // API key format: ms_<scope>_<43 random base64url characters> (32 random bytes), e.g.
-//   ms_send_3f9aK2...   ms_read_Q8xw1L...
-// The scope in the key makes it obvious what a leaked key can do. Send keys let an app submit SMS messages
-// (POST /api/sms); Read keys list and read emails and SMS. Email arrives over SMTP, so it needs no key.
-const SCOPES = ['send', 'read'];
-const KEY_PATTERN = /^ms_(send|read)_[A-Za-z0-9_-]{43}$/;
+//   ms_send_3f9aK2...   ms_email_Z1pQ7d...   ms_read_Q8xw1L...
+// The scope in the key makes it obvious what a leaked key can do, and a key has exactly one:
+//   send   submit SMS messages (POST /api/sms)
+//   email  send email: the SMTP password, with the key's name as the username
+//   read   list and read emails and SMS
+const SCOPES = ['send', 'email', 'read'];
+const KEY_PATTERN = /^ms_(send|email|read)_[A-Za-z0-9_-]{43}$/;
 
 function generateApiKey(scope) {
     if (!SCOPES.includes(scope)) throw new Error(`Unknown API key scope: ${scope}`);
@@ -19,7 +21,7 @@ function hashApiKey(key) {
 
 // What the dashboard shows for a key without revealing it: "ms_send_3f9aK2"
 function keyPrefix(key) {
-    const typed = key.match(/^ms_(?:send|read)_/);
+    const typed = key.match(/^ms_(?:send|email|read)_/);
     return typed ? key.slice(0, typed[0].length + 6) : key.slice(0, 6);
 }
 

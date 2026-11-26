@@ -6,6 +6,7 @@ const {
     validateListQuery,
     validateIdParam,
     validateBulkDelete,
+    validateMarkRead,
     validateAttachmentParams,
     validateExportQuery,
     validateTestEmail,
@@ -37,6 +38,9 @@ function createEmailRoutes({ emailModel, ingest, events, auth, config }) {
     router.get('/:id/attachments/:attachmentId', auth.requireRead, validateAttachmentParams, (req, res) =>
         controller.getAttachment(req, res)
     );
+
+    // Read state is shared and belongs to the dashboard: admins and viewers, not API keys
+    router.post('/read', auth.requireDashboardUser, validateMarkRead(validateListQuery), (req, res) => controller.markRead(req, res));
 
     // Adding a test email, deleting, and checking links (the server requests them): admin only
     router.post('/:id/check-links', auth.requireAdmin, validateIdParam, (req, res) => controller.checkEmailLinks(req, res));

@@ -55,6 +55,7 @@ class EmailController {
         const { total, emails } = await this.emailModel.list({ ...this.filters(req), limit: pageSize, offset: (page - 1) * pageSize });
         res.status(200).json({
             emails,
+            unreadCount: await this.emailModel.unreadCount(this.scope(req)),
             totalPages: Math.max(1, Math.ceil(total / pageSize)),
             totalEmails: total,
             currentPage: page,
@@ -200,6 +201,15 @@ class EmailController {
         });
         logToFile(`Stored test email id=${id} recipients=${recipients.length} attachments=${req.validated.attachments.length}`);
         res.status(201).json({ success: true, id, timestamp, message: 'Email stored successfully' });
+    }
+
+    // Mark emails read or unread, by id or everything matching the filters. Read state is shared by everyone who
+    // uses the dashboard, so other open dashboards are told (event "read").
+    async markRead(req, res) {
+        const { ids, filters, read } = req.validated;
+        const changed = filters ? await this.emailModel.markMatching(filters, read) : await this.emailModel.markRead(ids, read);
+        if (changed) this.events.emit('read', { kind: 'email', read, ids: filters ? null : ids });
+        res.status(200).json({ changed, unreadCount: await this.emailModel.unreadCount(null) });
     }
 
     async deleteEmails(req, res) {

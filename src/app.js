@@ -114,12 +114,12 @@ async function main() {
         }
     });
 
-    const smtp = createSmtpServer({ config, ingest, metrics });
+    const smtp = createSmtpServer({ config, ingest, metrics, apiKeyModel });
     const smtpPort = await listenSmtp(smtp, { port: config.smtpPort, host: config.smtpHost });
     const tlsNote = config.smtpTlsKey ? ', STARTTLS available' : '';
     logToFile(
         `SMTP server is listening on ${config.smtpHost}:${smtpPort} ` +
-        `(${config.smtpUsername ? 'login required' : 'any or no login accepted'}${tlsNote})`
+        `(${config.smtpUsername || (await apiKeyModel.hasEmailKeys()) ? 'login required' : 'any or no login accepted until an Email key is created'}${tlsNote})`
     );
     const smtpServers = [smtp];
     // The size limit is handed to smtp-server when it starts, so a change is passed on to the running servers
@@ -127,7 +127,7 @@ async function main() {
         if (keys.includes('MAX_EMAIL_SIZE_MB')) for (const server of smtpServers) server.options.size = current.maxEmailBytes;
     });
     if (config.smtpTlsPort) {
-        const smtpTls = createSmtpServer({ config, ingest, secure: true, metrics });
+        const smtpTls = createSmtpServer({ config, ingest, secure: true, metrics, apiKeyModel });
         const tlsPort = await listenSmtp(smtpTls, { port: config.smtpTlsPort, host: config.smtpHost });
         logToFile(`SMTP over TLS is listening on ${config.smtpHost}:${tlsPort}`);
         smtpServers.push(smtpTls);

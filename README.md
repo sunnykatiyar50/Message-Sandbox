@@ -4,7 +4,7 @@ A mock **SMS gateway** and **mail server** for testing, in one service. Point yo
 
 Built with Node.js and Express, using [`smtp-server`](https://github.com/nodemailer/smtp-server) to receive mail and [`mailparser`](https://github.com/nodemailer/mailparser) to parse it. Everything can be stored in SQLite (default), PostgreSQL, or MySQL.
 
-This project merges the former SMS Test Service and Email Test Service into one app with a single dashboard, login, API-key page and database. It is a clean break: the API and database are new (SMS moved from `/api/messages` to `/api/sms`, keys are `ms_send_…` / `ms_read_…`), and existing SMS databases and keys from the old services are not carried over.
+This project merges the former SMS Test Service and Email Test Service into one app with a single dashboard, login, API-key page and database. It is a clean break: the API and database are new (SMS moved from `/api/messages` to `/api/sms`, keys are `ms_send_…` / `ms_email_…` / `ms_read_…`), and existing SMS databases and keys from the old services are not carried over.
 
 ## Features
 
@@ -12,8 +12,8 @@ Shared by both channels: one password-protected dashboard (light and dark themes
 
 ### SMS gateway
 
-- **`POST /api/sms`** accepts the message your application would have sent to a provider (sender, phone, text), authenticated with a **Send** key.
-- **SMS list** in the dashboard: search (text, phone, sender), date filters, quick time ranges, pagination, bulk delete, keyboard navigation, and a detail pane with one-click **Copy code** for OTPs.
+- **`POST /api/sms`** accepts the message your application would have sent to a provider (sender, phone, text), authenticated with an **SMS** key.
+- **SMS list** in the dashboard: search (text, phone, sender), date filters, quick time ranges, pagination, bulk delete, **read / unread** state (see below), keyboard navigation, and a detail pane with one-click **Copy code** for OTPs.
 - Messages are shown according to their format, with a switch between views: **JSON** (indented and colour-coded), **HTML** (a safe preview), **XML**, **syslog** (a table with a severity badge) or **plain text** (with clickable links).
 - **OTP detection**: every message comes back with the detected one-time code (`code`). Amounts, order numbers, dates and phone numbers are ignored.
 - **API for tests**: `GET /api/sms/latest?phone=…`, `GET /api/sms/wait?phone=…` (waits for the message to arrive) and `DELETE /api/sms?phone=…` (empties one number between tests).
@@ -22,10 +22,10 @@ Shared by both channels: one password-protected dashboard (light and dark themes
 
 ### Email
 
-- **SMTP server** that accepts every message from anyone to anyone. Optional login (`SMTP_USERNAME` / `SMTP_PASSWORD`), optional TLS (STARTTLS and a TLS-only port), an optional list of accepted domains, special recipients that [simulate delivery failures](#simulating-delivery-failures), and an optional, allowlisted [relay](#relaying-to-a-real-mail-server) to a real mail server.
+- **SMTP server** that accepts every message from anyone to anyone. Login with an **Email** API key (the key's name as the username, the key as the password) or the optional `SMTP_USERNAME` / `SMTP_PASSWORD`, optional TLS (STARTTLS and a TLS-only port), an optional list of accepted domains, special recipients that [simulate delivery failures](#simulating-delivery-failures), and an optional, allowlisted [relay](#relaying-to-a-real-mail-server) to a real mail server.
 - **Full MIME parsing**: text and HTML bodies, multipart messages, encoded headers and names, inline images, attachments, and the raw `.eml`. Bcc recipients are recorded from the SMTP envelope.
 - **Web dashboard** with a resizable sidebar and a resizable detail pane:
-  - **Emails**: list with search (subject, addresses, body), date filters, quick time ranges, pagination, bulk delete and keyboard navigation (↑/↓ or j/k).
+  - **Emails**: list with search (subject, addresses, body), date filters, quick time ranges, pagination, bulk delete, **read / unread** state and keyboard navigation (↑/↓ or j/k).
   - Each email opens with tabs: **HTML** (sandboxed preview), **Text**, **Links**, **Checks**, **Headers**, **Attachments** (downloadable), **Thread** and **Raw**, plus one-click **Copy code** for verification codes and **Download .eml**.
   - The HTML preview has a **Mobile / Tablet / Desktop** width switch, a simulated **Dark** mode, and a **Load images** switch (remote images are blocked by default).
   - **Send test**: store a test email from the dashboard, with To, Cc, Bcc, HTML and text bodies and attachments, plus the equivalent `swaks` command.
@@ -120,7 +120,7 @@ SMTP_SECURE=false
 
 | | |
 |---|---|
-| **Login** | None needed: any credentials (or none) are accepted. Set `SMTP_USERNAME` and `SMTP_PASSWORD` to require them. |
+| **Login** | None needed until you create an **Email** key on the API keys page (or set `SMTP_USERNAME` and `SMTP_PASSWORD`): until then any credentials (or none) are accepted. Once an Email key exists, clients must sign in with the key's **name as the username** and the **key as the password**; `SMTP_USERNAME` / `SMTP_PASSWORD` keep working next to it. Only Email keys work here; SMS and Read keys are refused. Revoke the key and its login stops at once. The emails list shows which key each message came in with. |
 | **Recipients** | Everything is accepted, including addresses that don't exist, unless you set `SMTP_ALLOWED_DOMAINS`. A few special names fail on purpose: see [Simulating delivery failures](#simulating-delivery-failures). |
 | **Size** | Messages over `MAX_EMAIL_SIZE_MB` (10 by default) are rejected with `552`. |
 
@@ -145,11 +145,11 @@ Point your application's SMS integration at `POST /api/sms` instead of a provide
 
 ```
 curl -X POST http://localhost:30005/api/sms \
-  -H "Content-Type: application/json" -H "X-API-Key: $SEND_KEY" \
+  -H "Content-Type: application/json" -H "X-API-Key: $SMS_KEY" \
   -d '{"sender": "MyApp", "phone": "+15551234567", "message": "Your OTP is 123456"}'
 ```
 
-Response `201`: `{ "success": true, "id": 42, "timestamp": "…" }`. Errors: `400` (invalid input, with `details` per field), `401` (missing or unknown key), `403` (a Read key was used), `429` (more than `SMS_RATE_LIMIT` per minute per client IP).
+Response `201`: `{ "success": true, "id": 42, "timestamp": "…" }`. Errors: `400` (invalid input, with `details` per field), `401` (missing or unknown key), `403` (a key of another type was used), `429` (more than `SMS_RATE_LIMIT` per minute per client IP).
 
 ### Reading
 
@@ -157,9 +157,10 @@ Reading needs a **Read** key (`Authorization: Bearer <key>` or `X-API-Key`), `AD
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/sms` | List, newest first. `search` (text, phone or sender), `phone` (exactly, as stored), `startDate` / `endDate` (`YYYY-MM-DD`, UTC, inclusive), `after` / `before` (ISO date-times), `page`, `pageSize` (1–100), `unmask=true` for full phone numbers. Returns `{ messages, totalMessages, totalPages, currentPage }` |
+| `GET` | `/api/sms` | List, newest first. `search` (text, phone or sender), `phone` (exactly, as stored), `startDate` / `endDate` (`YYYY-MM-DD`, UTC, inclusive), `after` / `before` (ISO date-times), `page`, `pageSize` (1–100), `unmask=true` for full phone numbers. `unread=true` for unread only. Returns `{ messages, totalMessages, totalPages, currentPage, unreadCount }`, each message with `read` |
 | `GET` | `/api/sms/latest` | The newest message matching the same filters (usually `phone`), or `404` |
 | `GET` | `/api/sms/wait` | The same, but waits up to `timeout` seconds (default 30, at most 120) for one to arrive, and answers `408` otherwise. A message that is already stored is returned at once; use a unique number per test, or `after`, so an older one isn't picked up |
+| `POST` | `/api/sms/read` | Dashboard user or admin token. The same as `/api/emails/read`, for SMS |
 | `DELETE` | `/api/sms/:id` | Admin. Delete one message (`404` if it doesn't exist) |
 | `DELETE` | `/api/sms` | Admin. `{ "ids": [1, 2] }` (up to 500), or `?phone=+15551234567` to empty one number. One of the two is required, so a bare `DELETE` deletes nothing |
 
@@ -196,6 +197,12 @@ ci-1@example.com, example.org, *.test.local
 ```
 
 Entries are addresses, domains (`example.org`) or subdomain wildcards (`*.test.local`, which does not include `test.local` itself); the API takes the same text, or a list, as `allowedRecipients` when creating the key. A recipient counts if it is in To, Cc or the SMTP envelope (so Bcc too). For a limited key, every endpoint behaves as if other emails did not exist: lists, counts, `latest`, `wait`, a single email, its raw message, preview, attachments, thread, export and the event stream. Emails outside the limit return `404`. An empty limit (the default) means every inbox. The keys page shows each key's inboxes.
+
+### Read and unread
+
+Emails and SMS start out unread, shown in bold with a dot, and the **Emails** and **SMS** items in the sidebar show how many are unread. Opening a message (a click, or ↑/↓ and j/k) marks it read; the message that is shown automatically when a list loads does not count. The dot on a row toggles it, and the list toolbar has **Mark read** and **Mark unread** for the selected rows, **Mark all read** for everything matching the current search and time range, and an **Unread only** filter. Admins and viewers can all do this, and the state is shared: it is the same for everyone, and other open dashboards update live (a `read` event on `GET /api/events`).
+
+For scripts, `unread=true` on `GET /api/emails` and `GET /api/sms` lists only unread messages, every message carries `read`, and the list responses carry `unreadCount`. Reading through the API, with any key, never marks anything read. `POST /api/emails/read` and `POST /api/sms/read` change the state (dashboard sessions and the admin token only, not API keys): `{ "ids": [1, 2], "read": true }`, or `{ "matching": true, "read": false }` for everything matching the filters in the query string. Messages stored before this existed are treated as read when the server first starts with it.
 
 ### Export
 
@@ -356,8 +363,8 @@ RELAY_FROM=testing@mycompany.com
 
 | Who | How | Can do |
 |-----|-----|--------|
-| Applications sending SMS | `X-API-Key: <key>` (or `Authorization: Bearer <key>`) with a **Send** key | `POST /api/sms` only |
-| Applications sending mail | SMTP, with `SMTP_USERNAME` / `SMTP_PASSWORD` if configured | Deliver mail only |
+| Applications sending SMS | `X-API-Key: <key>` (or `Authorization: Bearer <key>`) with an **SMS** key (`ms_send_…`) | `POST /api/sms` only |
+| Applications sending mail | SMTP, signing in with an **Email** key (`ms_email_…`: key name as the username, key as the password), or `SMTP_USERNAME` / `SMTP_PASSWORD` if configured | Deliver mail only |
 | E2E tests reading messages | `Authorization: Bearer <key>` (or `X-API-Key`) with a **Read** key | Read emails (`GET /api/emails`, `/latest`, `/wait`, …) and SMS (`GET /api/sms`, `/latest`, `/wait`) |
 | E2E tests limited to some email inboxes | A **Read** key created with *Limit to recipients* | The same, but only for emails sent to those recipients; no SMS |
 | Scripts needing full access | `Authorization: Bearer <ADMIN_TOKEN>` from `.env` | Everything |
@@ -366,9 +373,9 @@ RELAY_FROM=testing@mycompany.com
 
 **Viewer accounts** are listed in `.env` as `VIEWER_USERS=alice:a-long-password,bob:another-long-password`. They can browse, search and read emails and SMS but can't send tests, delete, or see API keys; the server refuses those requests with `403`. Usernames may use letters, digits, `.`, `_`, `@` and `-`; passwords need 8+ characters and may contain `:` but not `,`.
 
-**API keys** are created on the dashboard's **API keys** page (no restart needed), look like `ms_send_…` (Send) or `ms_read_…` (Read), can be shown and copied again at any time, and can be revoked (anything using them then gets `401`). The database stores a SHA-256 hash, used to check requests, and an AES-256-GCM encrypted copy, used only to show the key again; the encryption key is derived from `SESSION_SECRET`. If `SESSION_SECRET` changes, keys keep working but can no longer be shown.
+**API keys** are created on the dashboard's **API keys** page (no restart needed), look like `ms_send_…` (SMS), `ms_email_…` (Email) or `ms_read_…` (Read), have exactly one of those types, show who created them, can be shown and copied again at any time, and can be revoked (anything using them then gets `401`). The database stores a SHA-256 hash, used to check requests, and an AES-256-GCM encrypted copy, used only to show the key again; the encryption key is derived from `SESSION_SECRET`. If `SESSION_SECRET` changes, keys keep working but can no longer be shown.
 
-To turn off authentication for local development, set `AUTH_DISABLED=true`. Don't do this on a server other people can reach. This only affects the dashboard and API; the SMTP server is governed by `SMTP_USERNAME` / `SMTP_PASSWORD`.
+To turn off authentication for local development, set `AUTH_DISABLED=true`. Don't do this on a server other people can reach. This only affects the dashboard and API; the SMTP server is governed by Email keys and `SMTP_USERNAME` / `SMTP_PASSWORD`.
 
 ## API
 
@@ -384,6 +391,7 @@ Summaries (no bodies), newest first.
 | `to` | — | Exact recipient address, case-insensitive, in To, Cc or the SMTP envelope (so Bcc too). `alice@example.com` does not match `malice@example.com`; use `search` for partial matches |
 | `from` | — | Sender address or name contains this value |
 | `subject` | — | Subject contains this value |
+| `unread` | — | `true` lists only emails that have not been read (see [Read and unread](#read-and-unread)) |
 | `startDate` / `endDate` | — | `YYYY-MM-DD` in UTC, `endDate` inclusive |
 | `after` / `before` | — | ISO date-times; used instead of the dates when given (`before` is exclusive) |
 | `page`, `pageSize` | `1`, `10` | Pagination, `pageSize` 1–100 |
@@ -396,10 +404,10 @@ Summaries (no bodies), newest first.
       "from": { "name": "Shop", "address": "shop@example.com" },
       "to": [{ "name": "", "address": "user@example.com" }], "cc": [],
       "envelope": { "from": "shop@example.com", "to": ["user@example.com"] },
-      "size": 2048, "attachmentCount": 1, "smtpUser": null, "timestamp": "2026-01-01T10:00:00.000Z"
+      "size": 2048, "attachmentCount": 1, "smtpUser": null, "timestamp": "2026-01-01T10:00:00.000Z", "read": false
     }
   ],
-  "totalPages": 1, "totalEmails": 1, "currentPage": 1
+  "totalPages": 1, "totalEmails": 1, "currentPage": 1, "unreadCount": 1
 }
 ```
 
@@ -494,12 +502,13 @@ For an SMS the payload is `{ "event": "sms.received", "sms": { "id", "sender", "
 | `GET` | `/api/emails/:id/thread` | `{ "emails": [...] }`: summaries of the emails in the same conversation, oldest first (empty if it has no `Message-ID` / `In-Reply-To` / `References` to go by) |
 | `POST` | `/api/emails/:id/check-links` | Admin. Requests each link in the email and returns `{ "results": [{ "url", "ok", "status", "finalUrl", "ms", "error" }], "skipped": 0 }`. `403` when `LINK_CHECK=false` |
 | `POST` | `/api/emails/test` | Admin. Store a test email: `{ "from", "fromName"?, "to": "a@x.com, b@x.com", "cc"?, "bcc"?, "subject"?, "text"?, "html"?, "attachments"?: [{ "filename", "contentType"?, "content": "<base64>" }] }` (text or html required; up to 5 files, 2 MB each, 5 MB in all; Bcc is only in the envelope) |
-| `GET` | `/api/events` | Server-Sent Events for both channels: an `email` event (the summary) for each email and an `sms` event (phone masked, with its `code`) for each SMS stored from now on |
+| `GET` | `/api/events` | Server-Sent Events for both channels: an `email` event (the summary) for each email and an `sms` event (phone masked, with its `code`) for each SMS stored from now on, and a `read` event (`{ kind, read, ids }`) when someone marks messages read or unread |
 | `GET` | `/api/emails/export` | `?ids=1,2,3`: a zip of the original `.eml` files (up to 100 emails) |
+| `POST` | `/api/emails/read` | Dashboard user or admin token. `{ "ids": [1, 2], "read": true }`, or `{ "matching": true, "read": false }` for every email matching the query filters. Returns `{ changed, unreadCount }`. See [Read and unread](#read-and-unread) |
 | `GET` | `/metrics` | Prometheus metrics (Read key or admin) |
 | `DELETE` | `/api/emails/:id` | Admin. Delete an email and its attachments (`404` if it doesn't exist) |
 | `DELETE` | `/api/emails` | Admin. Delete several (up to 500): `{ "ids": [1, 2, 3] }`. Or empty one inbox: `?to=user@example.com` (other filters narrow it further). One of the two is required, so a bare `DELETE` deletes nothing |
-| `GET` / `POST` / `DELETE` | `/api/keys` … | Admin. List, create (`{ "name": "ci-tests", "scope"?: "read" | "send", "allowedRecipients"?: "a@x.com, example.org" }`; `allowedRecipients` only for Read keys), reveal (`POST /:id/reveal`) and revoke keys |
+| `GET` / `POST` / `DELETE` | `/api/keys` … | Admin. List, create (`{ "name": "ci-tests", "scope"?: "read" | "send" | "email", "allowedRecipients"?: "a@x.com, example.org" }`; `allowedRecipients` only for Read keys), reveal (`POST /:id/reveal`) and revoke keys |
 | `GET` / `PUT` | `/api/settings` | Admin. The Settings page's settings with their source, and `{ "changes": { "NAME": "value" | null } }` to save or reset them |
 | `GET` / `DELETE` | `/api/activity`, `/api/activity/summary` | Admin. The Activity page's events (filters above), counts for the last 24 hours with the busiest addresses, and `DELETE` to clear them |
 | `GET` | `/api/info` | SMTP port and whether SMTP login is required (used by the dashboard) |
@@ -590,7 +599,7 @@ Most of the settings below can also be changed on the dashboard's **Settings** p
 | `PORT` | `30005` | Dashboard and API port |
 | `SMTP_PORT` | `1025` | SMTP port |
 | `SMTP_HOST` | `0.0.0.0` | Interface the SMTP server listens on |
-| `SMTP_USERNAME`, `SMTP_PASSWORD` | — | Optional. Set both to require SMTP login |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | — | Optional. Set both to require SMTP login (an Email key from the API keys page also works, and requires a login once one exists) |
 | `MAX_EMAIL_SIZE_MB` | `10` | Largest accepted message |
 | `SMTP_SIMULATE` | `true` | `false` turns off the special failure recipients (`reject@` and so on) |
 | `SMTP_ALLOWED_DOMAINS` | — | Comma separated domains (`example.com`, `*.example.com`) the server accepts mail for; empty accepts everything |
@@ -627,7 +636,7 @@ Most of the settings below can also be changed on the dashboard's **Settings** p
 
 ## Security notes
 
-This is a test tool. Don't expose the SMTP port to the internet: it accepts mail for any recipient (and, without `SMTP_USERNAME`, from anyone), stores it, and each message can be up to `MAX_EMAIL_SIZE_MB`. Keep it on a development network or behind a VPN, and consider `RETENTION_DAYS`.
+This is a test tool. Don't expose the SMTP port to the internet: it accepts mail for any recipient (and, without an Email key or `SMTP_USERNAME`, from anyone), stores it, and each message can be up to `MAX_EMAIL_SIZE_MB`. Keep it on a development network or behind a VPN, and consider `RETENTION_DAYS`.
 
 ## License
 
