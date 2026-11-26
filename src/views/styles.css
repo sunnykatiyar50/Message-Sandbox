@@ -2689,6 +2689,11 @@ body.role-viewer .admin-only {
 }
 
 /* ===== Settings page ===== */
+/* Keep the content in a readable column instead of stretching name and value to opposite edges */
+#viewSettings > :not(.view-header) {
+    max-width: 920px;
+}
+
 .settings-group {
     margin-bottom: 14px;
     padding: 4px 0 0;
@@ -2696,16 +2701,17 @@ body.role-viewer .admin-only {
 
 .settings-group h3 {
     margin: 0;
-    padding: 12px 16px;
+    padding: 12px 24px;
     font-size: 14px;
     border-bottom: 1px solid var(--border);
 }
 
 .settings-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
-    gap: 8px 24px;
-    padding: 12px 16px;
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+    gap: 8px 40px;
+    padding: 14px 24px;
+    align-items: start;
     border-bottom: 1px solid var(--border);
 }
 
