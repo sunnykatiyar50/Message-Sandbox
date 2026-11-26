@@ -54,7 +54,7 @@
             <a href="#/activity" class="nav-link admin-only" data-view="activity" title="Activity">
                 <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 <span class="label">Activity</span>
-                <span id="activityBadge" class="nav-badge hidden" title="Errors in the last 24 hours"></span>
+                <span id="activityBadge" class="nav-badge hidden" title="New errors since you last opened Activity"></span>
             </a>
             <a href="#/settings" class="nav-link admin-only" data-view="settings" title="Settings">
                 <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
@@ -134,14 +134,17 @@
                 <div class="list-pane">
                     <div class="list-toolbar">
                         <label class="check-label admin-only"><input type="checkbox" id="selectAllCheckbox" /> Select all</label>
-                        <span id="selectionInfo" class="muted"></span>
+                        <span id="selectionInfo" class="selection-info"></span>
                         <span class="spacer"></span>
-                        <label class="check-label" title="Show only emails that have not been read"><input type="checkbox" id="unreadOnly" /> Unread only</label>
-                        <button id="markReadButton" type="button" class="ghost" disabled title="Mark the selected emails as read">Mark read</button>
-                        <button id="markUnreadButton" type="button" class="ghost" disabled title="Mark the selected emails as unread">Mark unread</button>
-                        <button id="markAllReadButton" type="button" class="ghost" title="Mark every email matching the current filters as read">Mark all read</button>
-                        <button id="exportSelectedButton" type="button" class="ghost" disabled title="Download the selected emails as a zip of .eml files">Export selected</button>
-                        <button id="deleteSelectedButton" type="button" class="danger-ghost admin-only" disabled>Delete selected</button>
+                        <label class="filter-chip" title="Show only emails that have not been read"><input type="checkbox" id="unreadOnly" /><span>Unread</span></label>
+                        <span class="tb-sep" aria-hidden="true"></span>
+                        <div class="tb-actions">
+                            <button id="markReadButton" type="button" class="tb-btn" title="Mark the selected emails as read" aria-label="Mark the selected emails as read"><svg viewBox="0 0 24 24"><path d="M21.2 8.4 12 14 2.8 8.4"/><path d="M2.8 8.4 12 2l9.2 6.4V19a2 2 0 0 1-2 2H4.8a2 2 0 0 1-2-2z"/></svg><span>Read</span></button>
+                            <button id="markUnreadButton" type="button" class="tb-btn" title="Mark the selected emails as unread" aria-label="Mark the selected emails as unread"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><span>Unread</span></button>
+                            <button id="markAllReadButton" type="button" class="tb-btn" title="Mark every email matching the current filters as read" aria-label="Mark every email matching the current filters as read"><svg viewBox="0 0 24 24"><polyline points="2 13 7 18 16 7"/><polyline points="12 16 14 18 23 7"/></svg><span>All read</span></button>
+                            <button id="exportSelectedButton" type="button" class="tb-btn" title="Download the selected emails as a zip of .eml files" aria-label="Download the selected emails as a zip of .eml files"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>Export</span></button>
+                            <button id="deleteSelectedButton" type="button" class="tb-btn danger admin-only" title="Delete the selected emails" aria-label="Delete the selected emails"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg><span>Delete</span></button>
+                        </div>
                     </div>
                     <ul id="messageList" class="message-list"></ul>
                     <div class="list-footer">
@@ -215,13 +218,16 @@
                 <div class="list-pane">
                     <div class="list-toolbar">
                         <label class="check-label admin-only"><input type="checkbox" id="smsSelectAll" /> Select all</label>
-                        <span id="smsSelectionInfo" class="muted"></span>
+                        <span id="smsSelectionInfo" class="selection-info"></span>
                         <span class="spacer"></span>
-                        <label class="check-label" title="Show only messages that have not been read"><input type="checkbox" id="smsUnreadOnly" /> Unread only</label>
-                        <button id="smsMarkRead" type="button" class="ghost" disabled title="Mark the selected messages as read">Mark read</button>
-                        <button id="smsMarkUnread" type="button" class="ghost" disabled title="Mark the selected messages as unread">Mark unread</button>
-                        <button id="smsMarkAllRead" type="button" class="ghost" title="Mark every message matching the current filters as read">Mark all read</button>
-                        <button id="smsDeleteSelected" type="button" class="danger-ghost admin-only" disabled>Delete selected</button>
+                        <label class="filter-chip" title="Show only messages that have not been read"><input type="checkbox" id="smsUnreadOnly" /><span>Unread</span></label>
+                        <span class="tb-sep" aria-hidden="true"></span>
+                        <div class="tb-actions">
+                            <button id="smsMarkRead" type="button" class="tb-btn" title="Mark the selected messages as read" aria-label="Mark the selected messages as read"><svg viewBox="0 0 24 24"><path d="M21.2 8.4 12 14 2.8 8.4"/><path d="M2.8 8.4 12 2l9.2 6.4V19a2 2 0 0 1-2 2H4.8a2 2 0 0 1-2-2z"/></svg><span>Read</span></button>
+                            <button id="smsMarkUnread" type="button" class="tb-btn" title="Mark the selected messages as unread" aria-label="Mark the selected messages as unread"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><span>Unread</span></button>
+                            <button id="smsMarkAllRead" type="button" class="tb-btn" title="Mark every message matching the current filters as read" aria-label="Mark every message matching the current filters as read"><svg viewBox="0 0 24 24"><polyline points="2 13 7 18 16 7"/><polyline points="12 16 14 18 23 7"/></svg><span>All read</span></button>
+                            <button id="smsDeleteSelected" type="button" class="tb-btn danger admin-only" title="Delete the selected messages" aria-label="Delete the selected messages"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg><span>Delete</span></button>
+                        </div>
                     </div>
                     <ul id="smsList" class="message-list"></ul>
                     <div class="list-footer">
@@ -571,7 +577,13 @@
             </header>
 
             <div class="api-layout">
-                <section class="card quick-setup">
+                <div class="api-tabs segmented" role="tablist" aria-label="Setup and API sections">
+                <button type="button" role="tab" data-api-tab-button="quick" class="active">Quick setup</button>
+                <button type="button" role="tab" data-api-tab-button="sms">SMS guide</button>
+                <button type="button" role="tab" data-api-tab-button="email">Email guide</button>
+                </div>
+
+                <section class="card quick-setup" data-api-tab="quick">
                     <div class="quick-head">
                         <h3>Quick setup</h3>
                         <span class="muted">Copy these into your app's configuration.</span>
@@ -589,7 +601,7 @@
                                 <div><dt>Content-Type</dt><dd><code id="qsSmsType">application/json</code><button type="button" class="copy-button" data-copy="qsSmsType">Copy</button></dd></div>
                                 <div><dt>Body</dt><dd><code id="qsSmsBody"></code><button type="button" class="copy-button" data-copy="qsSmsBody">Copy</button></dd></div>
                             </dl>
-                            <p class="hint">Use a <b>Send</b> key from the <a href="#/keys">API keys</a> page as the value of the header.</p>
+                            <p class="hint">Use an <b>SMS</b> key from the <a href="#/keys">API keys</a> page as the value of the header.</p>
                             <pre id="qsSmsAll" class="hidden"></pre>
                         </div>
                         <div class="quick-col">
@@ -610,9 +622,8 @@
                     </div>
                 </section>
 
-                <div class="api-columns">
+                <div class="api-columns hidden" data-api-tab="sms">
                     <div class="api-col">
-                        <div class="api-col-title">SMS</div>
                     <article class="card">
                         <h3>Send an SMS</h3>
                         <p class="hint">The SMS gateway: point your application's SMS integration at this endpoint instead of a real provider. Nothing is delivered to a phone.</p>
@@ -650,7 +661,8 @@
                             <tr><th><span class="status err">429</span></th><td>Rate limit exceeded (<code>SMS_RATE_LIMIT</code>)</td></tr>
                         </table>
                     </article>
-
+                    </div>
+                    <div class="api-col">
                     <article class="card">
                         <h3>Read SMS from scripts and tests</h3>
                         <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> with a <b>Read</b> key (a Read key limited to some email inboxes can't read SMS) or <code>ADMIN_TOKEN</code>. Phone numbers are masked unless you add <code>unmask=true</code>.</p>
@@ -675,8 +687,9 @@
                         <pre class="code" id="jsSmsLatest"></pre>
                     </article>
                     </div>
+                    </div>
+                    <div class="api-columns hidden" data-api-tab="email">
                     <div class="api-col">
-                        <div class="api-col-title">Email</div>
                     <article class="card">
                         <h3>Send mail to this server</h3>
                         <p class="hint">Point your app's SMTP settings here. Every message is stored and shown in <a href="#/messages">Emails</a>; nothing is relayed to the real recipients.</p>
@@ -717,7 +730,8 @@
                         </table>
                         <p class="hint">Other recipients on the same message are still accepted, as with a real server.</p>
                     </article>
-
+                    </div>
+                    <div class="api-col">
                     <article class="card">
                         <h3>Read emails from scripts and tests</h3>
                         <p class="hint">Send <code>Authorization: Bearer &lt;key&gt;</code> (or <code>X-API-Key</code>) with a <b>Read</b> key from the <a href="#/keys">API keys</a> page, or <code>ADMIN_TOKEN</code> (everything, including delete). Tests can use the <code>client/</code> helper (<code>waitForCode</code>, <code>waitForLink</code>); see the README.</p>

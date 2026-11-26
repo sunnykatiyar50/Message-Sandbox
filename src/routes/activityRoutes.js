@@ -22,7 +22,11 @@ function createActivityRoutes({ activityModel, auth, config }) {
 
     // Counts by level and the addresses behind the most warnings and errors, for the last 24 hours
     router.get('/summary', auth.requireAdmin, async (req, res) => {
-        res.json({ ...(await activityModel.summary(new Date(Date.now() - DAY_MS))), retentionDays: config.activityRetentionDays });
+        // ?since=<ISO date-time> narrows the window (never wider than 24 hours); the sidebar badge uses it
+        let from = new Date(Date.now() - DAY_MS);
+        const since = new Date(String(req.query.since || ''));
+        if (!Number.isNaN(since.getTime()) && since > from) from = since;
+        res.json({ ...(await activityModel.summary(from)), retentionDays: config.activityRetentionDays });
     });
 
     router.delete('/', auth.requireAdmin, async (req, res) => {

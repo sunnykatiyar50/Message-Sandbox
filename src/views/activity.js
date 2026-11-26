@@ -110,9 +110,29 @@ async function activityLoadSummary() {
                 return li;
             })
         );
-        activityUpdateBadge(data.levels.error);
+        activityMarkSeen();
     } catch {
         // the page stays as it was; the list shows its own error
+    }
+}
+
+// The sidebar badge counts errors since Activity was last opened (in this browser), so it clears once you have looked
+const ACTIVITY_SEEN_KEY = 'activitySeenAt';
+
+function activityMarkSeen() {
+    try {
+        localStorage.setItem(ACTIVITY_SEEN_KEY, new Date().toISOString());
+    } catch {
+        // storage unavailable: the badge falls back to the last 24 hours
+    }
+    activityUpdateBadge(0);
+}
+
+function activitySeenAt() {
+    try {
+        return localStorage.getItem(ACTIVITY_SEEN_KEY) || '';
+    } catch {
+        return '';
     }
 }
 
@@ -125,8 +145,10 @@ function activityUpdateBadge(errors) {
 // The sidebar badge counts errors from the last 24 hours, so a problem shows even when this page isn't open
 async function activityRefreshBadge() {
     if (userRole !== 'admin' || document.hidden) return;
+    if (currentView() === 'activity') return activityMarkSeen();
     try {
-        const { response, data } = await apiJson('/api/activity/summary');
+        const since = activitySeenAt();
+        const { response, data } = await apiJson(`/api/activity/summary${since ? `?since=${encodeURIComponent(since)}` : ''}`);
         if (response.ok) activityUpdateBadge(data.levels.error);
     } catch {
         // ignore: the badge keeps its last value
@@ -159,6 +181,7 @@ async function activityClear() {
 
 // Called by showView() each time the page opens. It refreshes itself while it stays open.
 function activityShow() {
+    activityMarkSeen();
     activityLoad(1);
     activityLoadSummary();
     if (activityTimer) return;
