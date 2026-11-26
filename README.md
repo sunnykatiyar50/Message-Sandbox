@@ -8,7 +8,7 @@ This project merges the former SMS Test Service and Email Test Service into one 
 
 ## Features
 
-Shared by both channels: one password-protected dashboard (light and dark themes, resizable panes, optional read-only viewer accounts), API keys managed on a page, an admin token for scripts, live updates, a webhook, Prometheus metrics, rate limiting, security headers, optional automatic cleanup of old messages, and daily-rotated logs. Message content is never logged.
+Shared by both channels: one password-protected dashboard (light and dark themes, resizable panes, optional read-only viewer accounts), API keys managed on a page, an admin token for scripts, live updates, a webhook, Prometheus metrics, rate limiting, security headers, optional automatic cleanup of old messages, and daily-rotated logs. Message content is never logged. The dashboard is also an installable app (PWA): browsers offer **Install** on HTTPS or `localhost` (not on a plain-HTTP LAN address), and the service worker caches only static files, never messages or API responses.
 
 ### SMS gateway
 
